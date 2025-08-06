@@ -1,0 +1,399 @@
+{
+  "460411620473044993": {
+    "coins": 190,
+    "lastDaily": 1754503437516,
+    "inventory": {
+      "small potion": 2,
+      "spear_3": 2
+    },
+    "gear": {
+      "weapon": {
+        "axe": 2,
+        "goblin arm": 8,
+        "bow & arrow": 2,
+        "knight's rusty blade": 9,
+        "fortified steel waraxe": 2
+      },
+      "helmet": {
+        "goblin mask": 16,
+        "knight's rusty helmet": 5,
+        "old worn helmet": 4,
+        "shiny reindeer antlers": 1
+      },
+      "armor": {
+        "goblin clothing": 1,
+        "knight's rusty armor": 26
+      },
+      "ride": {}
+    },
+    "equipped": {
+      "weapon": "knight's rusty blade",
+      "helmet": "knight's rusty helmet",
+      "ride": null,
+      "armor": "knight's rusty armor"
+    },
+    "pets": {
+      "goblin pet": 1
+    },
+    "equippedPet": "goblin pet",
+    "archive": {
+      "shovel_2": {
+        "discovered": true,
+        "discoveredAt": 1754386264289
+      },
+      "sock": {
+        "discovered": true,
+        "discoveredAt": 1754386264292
+      },
+      "shovel_1": {
+        "discovered": true,
+        "discoveredAt": 1754386267322
+      },
+      "spear_3": {
+        "discovered": true,
+        "discoveredAt": 1754386279284
+      },
+      "spear_2": {
+        "discovered": true,
+        "discoveredAt": 1754386283249
+      },
+      "reindeer skin": {
+        "discovered": true,
+        "discoveredAt": 1754386283252
+      },
+      "spear_1": {
+        "discovered": true,
+        "discoveredAt": 1754386287027
+      },
+      "wolf pelt": {
+        "discovered": true,
+        "discoveredAt": 1754386290210
+      },
+      "shovel_3": {
+        "discovered": true,
+        "discoveredAt": 1754390058499
+      },
+      "bear claw": {
+        "discovered": true,
+        "discoveredAt": 1754390152713
+      },
+      "fortified steel waraxe": {
+        "discovered": true,
+        "discoveredAt": 1754393426937
+      },
+      "goblin mask": {
+        "discovered": true,
+        "discoveredAt": 1754400181563
+      },
+      "small potion": {
+        "discovered": true,
+        "discoveredAt": 1754438353837
+      },
+      "small mana potion": {
+        "discovered": true,
+        "discoveredAt": 1754438914424
+      },
+      "orc's eyeball": {
+        "discovered": true,
+        "discoveredAt": 1754442438183
+      },
+      "goblin tooth": {
+        "discovered": true,
+        "discoveredAt": 1754442968105
+      },
+      "goblin arm": {
+        "discovered": true,
+        "discoveredAt": 1754442968108
+      },
+      "knight's rusty armor": {
+        "discovered": true,
+        "discoveredAt": 1754442982083
+      },
+      "broken blade": {
+        "discovered": true,
+        "discoveredAt": 1754442982084
+      },
+      "axe": {
+        "discovered": true,
+        "discoveredAt": 1754493468059
+      },
+      "old worn helmet": {
+        "discovered": true,
+        "discoveredAt": 1754494272635
+      },
+      "skull": {
+        "discovered": true,
+        "discoveredAt": 1754503253660
+      }
+    },
+    "mana": 100,
+    "lastManaRegen": 1754503228674,
+    "countdownStart": 1754503238241
+  },
+  "402711683346464768": {
+    "coins": 163,
+    "lastDaily": 1754482841598,
+    "inventory": {
+      "shovel_3": 4,
+      "small potion": 1,
+      "broken blade": 5
+    },
+    "gear": {
+      "weapon": {
+        "axe": 6,
+        "bow & arrow": 1,
+        "goblin arm": 2,
+        "knight's rusty blade": 1
+      },
+      "helmet": {
+        "old worn helmet": 4,
+        "goblin mask": 3
+      },
+      "armor": {
+        "goblin clothing": 1
+      },
+      "ride": {}
+    },
+    "equipped": {
+      "weapon": "knight's rusty blade",
+      "helmet": "old worn helmet",
+      "armor": "goblin clothing",
+      "ride": null
+    },
+    "pets": {
+      "bunny pet": 1,
+      "goblin pet": 1
+    },
+    "equippedPet": "bunny pet",
+    "archive": {
+      "goblin arm": {
+        "discovered": true,
+        "discoveredAt": 1754397403384
+      },
+      "spear_3": {
+        "discovered": true,
+        "discoveredAt": 1754397513450
+      },
+      "spear_2": {
+        "discovered": true,
+        "discoveredAt": 1754397522692
+      },
+      "spear_1": {
+        "discovered": true,
+        "discoveredAt": 1754397532469
+      },
+      "reindeer skin": {
+        "discovered": true,
+        "discoveredAt": 1754397532913
+      },
+      "bear claw": {
+        "discovered": true,
+        "discoveredAt": 1754397535607
+      },
+      "goblin clothing": {
+        "discovered": true,
+        "discoveredAt": 1754482858408
+      },
+      "goblin tooth": {
+        "discovered": true,
+        "discoveredAt": 1754488563745
+      },
+      "goblin mask": {
+        "discovered": true,
+        "discoveredAt": 1754488563747
+      },
+      "small mana potion": {
+        "discovered": true,
+        "discoveredAt": 1754489166887
+      },
+      "small potion": {
+        "discovered": true,
+        "discoveredAt": 1754489170256
+      },
+      "knight's rusty blade": {
+        "discovered": true,
+        "discoveredAt": 1754491872194
+      },
+      "broken blade": {
+        "discovered": true,
+        "discoveredAt": 1754497373944
+      }
+    },
+    "mana": 5,
+    "lastManaRegen": 1754502104586,
+    "countdownStart": 1754502111309
+  },
+  "946078940462727238": {
+    "coins": 44,
+    "lastDaily": 1754488492727,
+    "inventory": {},
+    "gear": {
+      "weapon": {
+        "axe": 1,
+        "bow & arrow": 1,
+        "goblin arm": 4
+      },
+      "helmet": {
+        "old worn helmet": 2,
+        "goblin mask": 4
+      },
+      "armor": {},
+      "ride": {}
+    },
+    "equipped": {
+      "weapon": "bow & arrow",
+      "helmet": "goblin mask",
+      "armor": null,
+      "ride": null
+    },
+    "pets": {},
+    "archive": {
+      "shovel_3": {
+        "discovered": true,
+        "discoveredAt": 1754390471305
+      },
+      "shovel_2": {
+        "discovered": true,
+        "discoveredAt": 1754390478194
+      },
+      "sock": {
+        "discovered": true,
+        "discoveredAt": 1754390478196
+      },
+      "shovel_1": {
+        "discovered": true,
+        "discoveredAt": 1754390481443
+      },
+      "spear_3": {
+        "discovered": true,
+        "discoveredAt": 1754390765928
+      },
+      "spear_2": {
+        "discovered": true,
+        "discoveredAt": 1754391461799
+      },
+      "bear claw": {
+        "discovered": true,
+        "discoveredAt": 1754391461800
+      },
+      "spear_1": {
+        "discovered": true,
+        "discoveredAt": 1754391465552
+      },
+      "reindeer skin": {
+        "discovered": true,
+        "discoveredAt": 1754391608110
+      },
+      "bow & arrow": {
+        "discovered": true,
+        "discoveredAt": 1754391707229
+      },
+      "goblin tooth": {
+        "discovered": true,
+        "discoveredAt": 1754391744753
+      },
+      "goblin arm": {
+        "discovered": true,
+        "discoveredAt": 1754391744754
+      },
+      "goblin mask": {
+        "discovered": true,
+        "discoveredAt": 1754391744756
+      }
+    },
+    "mana": 20
+  },
+  "1382683326271328256": {
+    "coins": 6,
+    "lastDaily": 1754322449426,
+    "inventory": {},
+    "gear": {
+      "weapon": {},
+      "helmet": {},
+      "armor": {},
+      "ride": {}
+    },
+    "equipped": {
+      "weapon": null,
+      "helmet": null,
+      "armor": null,
+      "ride": null
+    }
+  },
+  "1331319032049045630": {
+    "coins": 0,
+    "lastDaily": 0,
+    "inventory": {},
+    "gear": {},
+    "archive": {},
+    "equipped": {
+      "weapon": null,
+      "helmet": null,
+      "armor": null,
+      "ride": null
+    },
+    "pets": {}
+  },
+  "921117528502177854": {
+    "coins": 3,
+    "lastDaily": 1754503442603,
+    "inventory": {},
+    "archive": {
+      "shovel_3": {
+        "discovered": true,
+        "discoveredAt": 1754503446515
+      },
+      "shovel_2": {
+        "discovered": true,
+        "discoveredAt": 1754503451803
+      },
+      "sock": {
+        "discovered": true,
+        "discoveredAt": 1754503451806
+      },
+      "shovel_1": {
+        "discovered": true,
+        "discoveredAt": 1754503457667
+      },
+      "axe": {
+        "discovered": true,
+        "discoveredAt": 1754503538085
+      },
+      "spear_3": {
+        "discovered": true,
+        "discoveredAt": 1754503565033
+      },
+      "spear_2": {
+        "discovered": true,
+        "discoveredAt": 1754503572683
+      },
+      "spear_1": {
+        "discovered": true,
+        "discoveredAt": 1754503588615
+      },
+      "reindeer skin": {
+        "discovered": true,
+        "discoveredAt": 1754503596549
+      },
+      "bear claw": {
+        "discovered": true,
+        "discoveredAt": 1754503789349
+      }
+    },
+    "gear": {
+      "weapon": {
+        "axe": 1
+      },
+      "helmet": {},
+      "armor": {},
+      "ride": {}
+    },
+    "equipped": {
+      "weapon": "axe",
+      "helmet": null,
+      "armor": null,
+      "ride": null
+    },
+    "mana": 80
+  }
+}

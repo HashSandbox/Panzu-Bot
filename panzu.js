@@ -313,12 +313,24 @@ function createMultiplayerBattle(userId, bossType) {
   // Deduct coins
   removeCoins(userId, 100);
   
+  // Get host username
+  let hostUsername = 'Unknown';
+  try {
+    const user = client.users.cache.get(userId);
+    if (user) {
+      hostUsername = user.username;
+    }
+  } catch (error) {
+    console.log(`Could not get username for host ${userId}`);
+  }
+  
   // Create battle state
   multiplayerBattles[battleId] = {
     boss: bossType,
     bossHealth: boss.health,
     maxBossHealth: boss.maxHealth,
     host: userId,
+    hostUsername: hostUsername,
     players: [
       {
         userId: userId,
@@ -338,6 +350,7 @@ function createMultiplayerBattle(userId, bossType) {
     round: 0,
     battleLog: [],
     channelId: null, // Will be set when battle is created
+    messageId: null, // Will be set when embed is created
     turnDeadline: null // When current player's turn expires
   };
   
@@ -721,6 +734,7 @@ async function updateMultiplayerBattleEmbeds() {
     
     if (battle && battle.status === 'waiting') {
       const timeRemaining = getBattleTimeRemaining(battleId);
+      const formattedTime = formatBattleCountdown(timeRemaining);
       
       // Check if battle should start or be refunded
       if (timeRemaining <= 0) {
@@ -778,6 +792,80 @@ async function updateMultiplayerBattleEmbeds() {
                 }
               }
             }
+          }
+        }
+      } else {
+        // Update waiting battle embed with live countdown
+        if (battle.messageId && battle.channelId) {
+          try {
+            const channel = client.channels.cache.get(battle.channelId);
+            if (channel) {
+              const message = await channel.messages.fetch(battle.messageId);
+              if (message) {
+                // Create updated embed with live countdown
+                const boss = multiplayerBosses[battle.boss];
+                const updatedEmbed = {
+                  color: 0x8B4513,
+                  title: '🎮 **Multiplayer Battle Created!**',
+                  description: `**${battle.hostUsername || 'Unknown'}** has started a battle against **${boss.name}**!`,
+                  fields: [
+                    {
+                      name: '👹 Boss',
+                      value: `${boss.name}`,
+                      inline: true
+                    },
+                    {
+                      name: '💰 Entry Cost',
+                      value: '100 Panda Coins (PAID)',
+                      inline: true
+                    },
+                    {
+                      name: '⏰ Join Window',
+                      value: `${formattedTime} remaining`,
+                      inline: true
+                    },
+                    {
+                      name: '👥 Players',
+                      value: `${battle.players.length}/4`,
+                      inline: true
+                    },
+                    {
+                      name: '🎯 Battle ID',
+                      value: `\`${battleId}\``,
+                      inline: false
+                    },
+                    {
+                      name: '📋 How to Join',
+                      value: `Click the **JOIN BATTLE** button below to join this battle!`,
+                      inline: false
+                    }
+                  ],
+                  footer: {
+                    text: `Battle will auto-start when 4 players join or ${formattedTime} expire (min 2 players)!`,
+                    icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+                  },
+                  timestamp: new Date().toISOString()
+                };
+                
+                const joinRow = {
+                  type: 1,
+                  components: [
+                    {
+                      type: 2,
+                      style: 3, // Success style (green)
+                      label: '⚔️ JOIN BATTLE',
+                      custom_id: `multi_join_${battleId}`,
+                      emoji: { name: '⚔️' },
+                    },
+                  ],
+                };
+                
+                await message.edit({ embeds: [updatedEmbed], components: [joinRow] });
+                console.log(`⏰ Updated live countdown for battle ${battleId}: ${formattedTime} remaining`);
+              }
+            }
+          } catch (error) {
+            console.log(`❌ Could not edit message for battle ${battleId}:`, error.message);
           }
         }
       }
@@ -4888,7 +4976,13 @@ client.on('interactionCreate', async interaction => {
               ],
             };
 
-            await interaction.reply({ embeds: [createEmbed], components: [joinRow] });
+            const reply = await interaction.reply({ embeds: [createEmbed], components: [joinRow] });
+            
+            // Store the message ID for live updates
+            if (reply && reply.id) {
+              multiplayerBattles[result.battleId].messageId = reply.id;
+            }
+            
             console.log('✅ Multiplayer battle created successfully');
             break;
           }
@@ -5026,20 +5120,119 @@ client.on('interactionCreate', async interaction => {
 
             const components = joinRow ? [joinRow] : [];
             await interaction.reply({ embeds: [joinEmbed], components: components });
+            
+            // Also update the original battle embed with new player count and time
+            if (battle.messageId && battle.channelId) {
+              try {
+                const channel = client.channels.cache.get(battle.channelId);
+                if (channel) {
+                  const message = await channel.messages.fetch(battle.messageId);
+                  if (message) {
+                    // Create updated embed with live countdown
+                    const updatedEmbed = {
+                      color: 0x8B4513,
+                      title: '🎮 **Multiplayer Battle Created!**',
+                      description: `**${battle.hostUsername || 'Unknown'}** has started a battle against **${boss.name}**!`,
+                      fields: [
+                        {
+                          name: '👹 Boss',
+                          value: `${boss.name}`,
+                          inline: true
+                        },
+                        {
+                          name: '💰 Entry Cost',
+                          value: '100 Panda Coins (PAID)',
+                          inline: true
+                        },
+                        {
+                          name: '⏰ Join Window',
+                          value: `${formattedTime} remaining`,
+                          inline: true
+                        },
+                        {
+                          name: '👥 Players',
+                          value: `${battle.players.length}/4`,
+                          inline: true
+                        },
+                        {
+                          name: '🎯 Battle ID',
+                          value: `\`${battleId}\``,
+                          inline: false
+                        },
+                        {
+                          name: '📋 How to Join',
+                          value: `Click the **JOIN BATTLE** button below to join this battle!`,
+                          inline: false
+                        }
+                      ],
+                      footer: {
+                        text: `Battle will auto-start when 4 players join or ${formattedTime} expire (min 2 players)!`,
+                        icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+                      },
+                      timestamp: new Date().toISOString()
+                    };
+                    
+                    const updatedJoinRow = {
+                      type: 1,
+                      components: [
+                        {
+                          type: 2,
+                          style: 3, // Success style (green)
+                          label: '⚔️ JOIN BATTLE',
+                          custom_id: `multi_join_${battleId}`,
+                          emoji: { name: '⚔️' },
+                        },
+                      ],
+                    };
+                    
+                    await message.edit({ embeds: [updatedEmbed], components: [updatedJoinRow] });
+                    console.log(`⏰ Updated original battle embed for ${battleId}: ${formattedTime} remaining, ${battle.players.length} players`);
+                  }
+                }
+              } catch (error) {
+                console.log(`❌ Could not edit original message for battle ${battleId}:`, error.message);
+              }
+            }
+            
             console.log('✅ Player joined multiplayer battle successfully');
             break;
           }
 
           if (customId.startsWith('multi_attack_')) {
-            const parts = customId.split('_');
-            const battleId = parts[2];
-            const attackType = parts[3];
+            console.log('🔍 Raw button customId:', customId);
+            
+            // Fix: Handle the case where battleId might contain underscores
+            const match = customId.match(/^multi_attack_(.+)_(basic|defend)$/);
+            if (!match) {
+              console.log('❌ Invalid attack button format:', customId);
+              await interaction.reply({ content: '❌ Invalid button format', ephemeral: true });
+              break;
+            }
+            const battleId = match[1];
+            const attackType = match[2];
+            
+            console.log('🔍 Parsed battleId:', battleId);
+            console.log('🔍 Parsed attackType:', attackType);
             
             console.log('🎮 Multiplayer attack button clicked by:', user.username, 'for battle:', battleId, 'attack:', attackType);
+            
+            // Debug battle state
+            const debugBattle = multiplayerBattles[battleId];
+            if (debugBattle) {
+              console.log('🔍 Battle state debug:');
+              console.log('  - Status:', debugBattle.status);
+              console.log('  - Current turn:', debugBattle.currentTurn);
+              console.log('  - Current player index:', debugBattle.currentPlayerIndex);
+              console.log('  - Turn order:', debugBattle.turnOrder);
+              console.log('  - Players:', debugBattle.players.map(p => `${p.userId}: ${p.health}/${p.maxHealth} HP`));
+            } else {
+              console.log('❌ Battle not found in multiplayerBattles');
+            }
             
             const result = processMultiplayerAttack(user.id, battleId, attackType);
             
             if (!result.success) {
+              console.log('❌ Attack failed:', result.error);
               await interaction.reply({ content: `❌ ${result.error}`, ephemeral: true });
               break;
             }

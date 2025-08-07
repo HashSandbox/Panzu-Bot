@@ -394,8 +394,8 @@ function joinMultiplayerBattle(userId, battleId) {
   
   battle.turnOrder.push(userId);
   
-  // Auto-start if 4 players or 30 seconds passed
-  if (battle.players.length >= 4 || Date.now() >= battle.joinDeadline) {
+  // Auto-start if 4 players join OR if 30 seconds passed AND at least 2 players
+  if (battle.players.length >= 4 || (Date.now() >= battle.joinDeadline && battle.players.length >= 2)) {
     startMultiplayerBattle(battleId);
   }
   
@@ -413,11 +413,15 @@ function checkAndRefundBattle(battleId) {
   }
   
   if (Date.now() > battle.joinDeadline && battle.players.length < 2) {
-    // Refund the host
+    // Refund the host if not enough players joined
     addCoins(battle.host, 100);
     battle.status = 'cancelled';
     saveMultiplayerBattles();
-    return { success: true, message: 'Battle cancelled - no players joined. Host refunded 100 coins.' };
+    return { success: true, message: 'Battle cancelled - not enough players joined. Host refunded 100 coins.' };
+  } else if (Date.now() > battle.joinDeadline && battle.players.length >= 2) {
+    // Start battle if enough players joined but time expired
+    startMultiplayerBattle(battleId);
+    return { success: true, message: 'Battle starting with available players!' };
   }
   
   return null;
@@ -4631,7 +4635,7 @@ client.on('interactionCreate', async interaction => {
                 }
               ],
               footer: {
-                text: 'Battle will auto-start when 4 players join or 30 seconds expire! (30s left)',
+                text: 'Battle will auto-start when 4 players join or 30 seconds expire (min 2 players)! (30s left)',
                 icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
               },
               timestamp: new Date().toISOString()
@@ -4722,10 +4726,10 @@ client.on('interactionCreate', async interaction => {
                   inline: false
                 }
               ],
-              footer: {
-                text: battle.players.length >= 4 ? 'Battle will start immediately!' : `Waiting for more players... (${timeRemaining}s left)`,
-                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
-              },
+                              footer: {
+                  text: battle.players.length >= 4 ? 'Battle will start immediately!' : `Waiting for more players... (${timeRemaining}s left, min 2 players)`,
+                  icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+                },
               timestamp: new Date().toISOString()
             };
 

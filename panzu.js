@@ -466,7 +466,19 @@ function startMultiplayerBattle(battleId) {
   battle.players.forEach(player => {
     const damage = Math.max(1, boss.attack - player.defense);
     player.health = Math.max(0, player.health - damage);
-    battle.battleLog.push(`💥 ${boss.name} attacks ${player.userId} for ${damage} damage! (${player.health}/${player.maxHealth} HP)`);
+    
+    // Get username for battle log
+    let username = player.userId;
+    try {
+      const user = client.users.cache.get(player.userId);
+      if (user) {
+        username = user.username;
+      }
+    } catch (error) {
+      console.log(`Could not get username for ${player.userId} in battle log`);
+    }
+    
+    battle.battleLog.push(`💥 ${boss.name} attacks ${username} for ${damage} damage! (${player.health}/${player.maxHealth} HP)`);
   });
   
   // Set first player turn
@@ -506,13 +518,24 @@ function processMultiplayerAttack(userId, battleId, attackType) {
   let damage = 0;
   let message = '';
   
+  // Get username for battle log
+  let username = player.userId;
+  try {
+    const user = client.users.cache.get(player.userId);
+    if (user) {
+      username = user.username;
+    }
+  } catch (error) {
+    console.log(`Could not get username for ${player.userId} in attack log`);
+  }
+  
   if (attackType === 'basic') {
     damage = Math.max(1, player.attack - boss.defense);
-    message = `⚔️ **${player.userId}** attacks for **${damage}** damage!`;
+    message = `⚔️ **${username}** attacks for **${damage}** damage!`;
     battle.battleLog.push(message);
   } else if (attackType === 'defend') {
     player.defense += 3; // Temporary defense boost
-    message = `🛡️ **${player.userId}** defends! (+3 defense this turn)`;
+    message = `🛡️ **${username}** defends! (+3 defense this turn)`;
     battle.battleLog.push(message);
   }
   
@@ -544,7 +567,19 @@ function processMultiplayerAttack(userId, battleId, attackType) {
       if (player.health > 0) {
         const bossDamage = Math.max(1, boss.attack - player.defense);
         player.health = Math.max(0, player.health - bossDamage);
-        battle.battleLog.push(`💥 ${boss.name} attacks ${player.userId} for ${bossDamage} damage! (${player.health}/${player.maxHealth} HP)`);
+        
+        // Get username for battle log
+        let username = player.userId;
+        try {
+          const user = client.users.cache.get(player.userId);
+          if (user) {
+            username = user.username;
+          }
+        } catch (error) {
+          console.log(`Could not get username for ${player.userId} in battle log`);
+        }
+        
+        battle.battleLog.push(`💥 ${boss.name} attacks ${username} for ${bossDamage} damage! (${player.health}/${player.maxHealth} HP)`);
       }
     });
     
@@ -608,7 +643,17 @@ function createBattleEmbed(battleId) {
         name: '👥 Players',
         value: battle.players.map(player => {
           const status = player.health > 0 ? '🛡️' : '💀';
-          return `${status} **${player.userId}**: ${player.health}/${player.maxHealth} HP`;
+          // Try to get username from client cache, fallback to ID
+          let username = player.userId;
+          try {
+            const user = client.users.cache.get(player.userId);
+            if (user) {
+              username = user.username;
+            }
+          } catch (error) {
+            console.log(`Could not get username for ${player.userId}, using ID`);
+          }
+          return `${status} **${username}**: ${player.health}/${player.maxHealth} HP`;
         }).join('\n'),
         inline: false
       }

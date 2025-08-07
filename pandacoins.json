@@ -1,10 +1,11 @@
 {
   "460411620473044993": {
-    "coins": 190,
+    "coins": 15,
     "lastDaily": 1754503437516,
     "inventory": {
       "small potion": 2,
-      "spear_3": 2
+      "spear_3": 2,
+      "shovel_3": 5
     },
     "gear": {
       "weapon": {
@@ -126,9 +127,11 @@
         "discoveredAt": 1754503253660
       }
     },
-    "mana": 100,
-    "lastManaRegen": 1754503228674,
-    "countdownStart": 1754503238241
+    "mana": 41,
+    "lastManaRegen": 1754590408674,
+    "countdownStart": 1754590415542,
+    "level": 2,
+    "exp": 20
   },
   "402711683346464768": {
     "coins": 163,
@@ -395,5 +398,48 @@
       "ride": null
     },
     "mana": 80
+  },
+  "638702384046145536": {
+    "coins": 3,
+    "lastDaily": 1754591163068,
+    "inventory": {
+      "sock": 1
+    },
+    "archive": {
+      "shovel_3": {
+        "discovered": true,
+        "discoveredAt": 1754591180076
+      },
+      "shovel_2": {
+        "discovered": true,
+        "discoveredAt": 1754591187843
+      },
+      "sock": {
+        "discovered": true,
+        "discoveredAt": 1754591187846
+      },
+      "shovel_1": {
+        "discovered": true,
+        "discoveredAt": 1754591191815
+      },
+      "axe": {
+        "discovered": true,
+        "discoveredAt": 1754591199655
+      }
+    },
+    "gear": {
+      "weapon": {
+        "axe": 1
+      },
+      "helmet": {},
+      "armor": {},
+      "ride": {}
+    },
+    "equipped": {
+      "weapon": "axe",
+      "helmet": null,
+      "armor": null,
+      "ride": null
+    }
   }
 }

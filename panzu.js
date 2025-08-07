@@ -67,16 +67,11 @@ try {
   questData = {};
 }
 
-// Save quest data
 function saveQuestData() {
-  try {
-    fs.writeFileSync(questsFile, JSON.stringify(questData, null, 2));
-  } catch (error) {
-    console.error('Error saving quest data:', error);
-  }
+  fs.writeFileSync(questsFile, JSON.stringify(questData, null, 2), 'utf8');
 }
 
-// Initialize user quest data
+// Initialize user quest data if it doesn't exist
 function initializeUserQuestData(userId) {
   if (!questData[userId]) {
     questData[userId] = {
@@ -86,6 +81,7 @@ function initializeUserQuestData(userId) {
       huntCount: 0,
       powerCount: 0,
       goblinDefeated: false,
+      orcDefeated: false,
       lastDigTime: 0,
       lastHuntTime: 0
     };
@@ -93,7 +89,6 @@ function initializeUserQuestData(userId) {
   return questData[userId];
 }
 
-// Get user's quest data
 function getUserQuestData(userId) {
   return initializeUserQuestData(userId);
 }
@@ -102,15 +97,6 @@ function getUserQuestData(userId) {
 function updateDigCount(userId) {
   const userQuestData = getUserQuestData(userId);
   userQuestData.digCount++;
-  userQuestData.lastDigTime = Date.now();
-  saveQuestData();
-}
-
-// Update hunt count for quest tracking
-function updateHuntCount(userId) {
-  const userQuestData = getUserQuestData(userId);
-  userQuestData.huntCount++;
-  userQuestData.lastHuntTime = Date.now();
   saveQuestData();
 }
 
@@ -133,33 +119,48 @@ function updateGoblinDefeat(userId) {
   checkQuestCompletion(userId, 'goblin', 0);
 }
 
-// Check and complete quests
+// Update hunt count for quest tracking
+function updateHuntCount(userId) {
+  const userQuestData = getUserQuestData(userId);
+  userQuestData.huntCount++;
+  saveQuestData();
+  
+  // Check if this completes the hunt quest
+  checkQuestCompletion(userId, 'hunt', 0);
+}
+
+// Update orc defeat for quest tracking
+function updateOrcDefeat(userId) {
+  const userQuestData = getUserQuestData(userId);
+  userQuestData.orcDefeated = true;
+  saveQuestData();
+  
+  // Check if this completes the orc quest
+  checkQuestCompletion(userId, 'orc', 0);
+}
+
+// Check quest completion
 function checkQuestCompletion(userId, questType, count) {
   const userQuestData = getUserQuestData(userId);
   
-  if (questType === 'dig' && count >= 10) {
-    if (!userQuestData.completedQuests.dig10) {
+  if (questType === 'dig') {
+    if (userQuestData.digCount >= 10 && !userQuestData.completedQuests.dig10) {
       userQuestData.completedQuests.dig10 = {
         completedAt: Date.now(),
-        reward: 20,
+        reward: 25,
         claimed: false
       };
       saveQuestData();
       return {
         completed: true,
         questName: 'Dig Apprentice',
-        reward: 20,
-        description: 'Use /dig 10 times',
-        questId: 'dig10'
+        reward: 25,
+        description: 'Dig 10 times to learn the basics'
       };
     }
   }
   
-  // Check power quest completion
   if (questType === 'power') {
-    updatePowerCount(userId); // Update power count first
-    const userQuestData = getUserQuestData(userId);
-    
     if (userQuestData.powerCount >= 10 && !userQuestData.completedQuests.power10) {
       userQuestData.completedQuests.power10 = {
         completedAt: Date.now(),
@@ -171,17 +172,46 @@ function checkQuestCompletion(userId, questType, count) {
         completed: true,
         questName: 'Dungeon Preparation',
         reward: 50,
-        description: 'Reach at least 10 total power'
+        description: 'Achieve at least 10 total power'
+      };
+    }
+    
+    if (userQuestData.powerCount >= 25 && !userQuestData.completedQuests.power25) {
+      userQuestData.completedQuests.power25 = {
+        completedAt: Date.now(),
+        reward: 125,
+        claimed: false
+      };
+      saveQuestData();
+      return {
+        completed: true,
+        questName: 'Legendary Warrior',
+        reward: 125,
+        description: 'Achieve at least 25 total power'
       };
     }
   }
   
-  // Check goblin defeat quest completion
   if (questType === 'goblin') {
-    const userQuestData = getUserQuestData(userId);
-    
     if (userQuestData.goblinDefeated && !userQuestData.completedQuests.goblinDefeat) {
       userQuestData.completedQuests.goblinDefeat = {
+        completedAt: Date.now(),
+        reward: 75,
+        claimed: false
+      };
+      saveQuestData();
+      return {
+        completed: true,
+        questName: 'Goblin Slayer',
+        reward: 75,
+        description: 'Defeat the goblin enemy in the dungeon'
+      };
+    }
+  }
+  
+  if (questType === 'hunt') {
+    if (userQuestData.huntCount >= 20 && !userQuestData.completedQuests.hunt20) {
+      userQuestData.completedQuests.hunt20 = {
         completedAt: Date.now(),
         reward: 100,
         claimed: false
@@ -189,9 +219,26 @@ function checkQuestCompletion(userId, questType, count) {
       saveQuestData();
       return {
         completed: true,
-        questName: 'Goblin Slayer',
+        questName: 'Master Hunter',
         reward: 100,
-        description: 'Defeat the goblin enemy in the dungeon'
+        description: 'Hunt 20 times to become a skilled hunter'
+      };
+    }
+  }
+  
+  if (questType === 'orc') {
+    if (userQuestData.orcDefeated && !userQuestData.completedQuests.orcDefeat) {
+      userQuestData.completedQuests.orcDefeat = {
+        completedAt: Date.now(),
+        reward: 150,
+        claimed: false
+      };
+      saveQuestData();
+      return {
+        completed: true,
+        questName: 'Orc Slayer',
+        reward: 150,
+        description: 'Defeat The Orc Enemy in the dungeon'
       };
     }
   }
@@ -562,17 +609,9 @@ function equipGear(userId, category, itemName) {
 // Add gear to user's collection
 function addGearToInventory(userId, gearType, gearName, quantity = 1) {
   const gear = getUserGear(userId);
-  
-  // Ensure the gear type exists
-  if (!gear[gearType]) {
-    gear[gearType] = {};
-  }
-  
-  // Ensure the specific gear item exists
   if (!gear[gearType][gearName]) {
     gear[gearType][gearName] = 0;
   }
-  
   gear[gearType][gearName] += quantity;
   
   // Mark gear as discovered in archive
@@ -607,18 +646,21 @@ const gearStats = {
     axe: { attack: 1 },
     'goblin arm': { attack: 3, slapChance: 20 },
     'knight\'s rusty blade': { attack: 7, defense: 3 },
-    'bow & arrow': { attack: 4, headshotChance: 20 }
+    'bow & arrow': { attack: 4, headshotChance: 20 },
+    'fortified steel waraxe': { attack: 12, defense: 2 }
   },
           helmet: {
           'goblin mask': { defense: 1, health: 1 },
           'knight\'s rusty helmet': { defense: 3 },
           'old worn helmet': { defense: 1, health: 2 },
-          'shiny reindeer antlers': { defense: 5, health: 9, luck: 2 }
+          'shiny reindeer antlers': { defense: 5, health: 9, luck: 2 },
+          'fortified steel helmet': { defense: 6, health: 3 }
         },
   armor: {
     'goblin clothing': { defense: 2, health: 1 },
     'knight\'s rusty armor': { defense: 6, health: 3 },
-    'old worn armor': { defense: 1, health: 1 }
+    'old worn armor': { defense: 1, health: 1 },
+    'fortified steel armor': { defense: 10, health: 5 }
   },
   ride: {
     horse: { speed: 2 }
@@ -644,6 +686,19 @@ const gearSetBonuses = {
     },
     bonuses: {
       health: 10
+    }
+  },
+  'The Fortified Steel\'s Bonus': {
+    name: 'The Fortified Steel\'s Bonus',
+    description: 'Wearing the complete Fortified Steel set grants additional health and defense',
+    requiredItems: {
+      helmet: 'fortified steel helmet',
+      weapon: 'fortified steel waraxe',
+      armor: 'fortified steel armor'
+    },
+    bonuses: {
+      health: 8,
+      defense: 5
     }
   }
 };
@@ -1276,6 +1331,9 @@ function initiateBattle(userId, enemyType) {
   if (!enemy) return null;
 
   const playerStats = getUserStats(userId);
+  console.log(`🎯 Battle initialization for ${userId}:`);
+  console.log(`  - Calculated playerStats:`, playerStats);
+  
   const battleState = {
     enemyType,
     enemy,
@@ -1715,11 +1773,6 @@ function processVictoryRewards(userId, enemy) {
   addCoins(userId, enemy.rewards.coins);
   rewards.push(`💰 ${enemy.rewards.coins} Panda Coins`);
 
-  // Track goblin defeat for quest
-  if (enemy.name === 'The Goblin') {
-    updateGoblinDefeat(userId);
-  }
-
   // Roll for item drops (handle exclusive groups) with pursuit bonuses
   const exclusiveGroups = {};
 
@@ -1787,11 +1840,33 @@ function processVictoryRewards(userId, enemy) {
     }
   });
 
+  // Track goblin defeat for quest
+  if (enemy.name === 'The Goblin') {
+    updateGoblinDefeat(userId);
+  }
+  
+  // Track orc defeat for quest
+  if (enemy.name === 'The Orc') {
+    updateOrcDefeat(userId);
+  }
+
+  // Add experience based on enemy mana cost (EXP = Mana Cost × 2)
+  const expGained = enemy.manaCost * 2;
+  const levelUpInfo = addExperience(userId, expGained);
+  rewards.push(`⭐ ${expGained} Experience Points`);
+  
+  // Add level-up notification if player leveled up
+  if (levelUpInfo.leveledUp) {
+    rewards.push(`🎉 **LEVEL UP!** You reached level ${levelUpInfo.newLevel}!`);
+  }
+
   return rewards;
 }
 
 // Calculate user's total stats from equipped gear and pets
 function getUserStats(userId) {
+  console.log(`🚨 getUserStats called with userId: ${userId}`);
+  
   const equipped = getUserEquipped(userId);
   const equippedPet = getUserEquippedPet(userId);
   const stats = {
@@ -1802,15 +1877,25 @@ function getUserStats(userId) {
     luck: 0
   };
 
+  // Debug logging
+  console.log(`🔍 Debug getUserStats for ${userId}:`);
+  console.log(`  - Equipped gear:`, equipped);
+  console.log(`  - Equipped pet:`, equippedPet);
+
   // Add stats from equipped gear
   Object.entries(equipped).forEach(([gearType, itemName]) => {
+    console.log(`  - Checking ${gearType}: ${itemName}`);
     if (itemName && gearStats[gearType] && gearStats[gearType][itemName]) {
       const itemStats = gearStats[gearType][itemName];
+      console.log(`  - Found stats for ${itemName}:`, itemStats);
       stats.attack += itemStats.attack || 0;
       stats.defense += itemStats.defense || 0;
       stats.health += itemStats.health || 0;
       stats.speed += itemStats.speed || 0;
       stats.luck += itemStats.luck || 0;
+    } else {
+      console.log(`  - No stats found for ${itemName} in ${gearType}`);
+      console.log(`  - gearStats[${gearType}]:`, gearStats[gearType]);
     }
   });
 
@@ -1834,6 +1919,7 @@ function getUserStats(userId) {
     stats.luck += setBonus.bonuses.luck || 0;
   });
 
+  console.log(`  - Final calculated stats:`, stats);
   return stats;
 }
 
@@ -1887,7 +1973,7 @@ function removeCoins(userId, amount) {
 // Add coins to user
 function addCoins(userId, amount, guild = null) {
   if (!pandaCoinData[userId]) {
-    pandaCoinData[userId] = { coins: 0, lastDaily: 0, inventory: {}, archive: {} };
+    pandaCoinData[userId] = { coins: 0, lastDaily: 0, inventory: {}, archive: {}, level: 1, exp: 0 };
   }
   pandaCoinData[userId].coins += amount;
   savePandaCoinData();
@@ -1903,7 +1989,7 @@ function addCoins(userId, amount, guild = null) {
 // Check if user can claim daily reward
 function canClaimDaily(userId) {
   if (!pandaCoinData[userId]) {
-    pandaCoinData[userId] = { coins: 0, lastDaily: 0, inventory: {}, archive: {} };
+    pandaCoinData[userId] = { coins: 0, lastDaily: 0, inventory: {}, archive: {}, level: 1, exp: 0 };
   }
   const now = Date.now();
   const lastDaily = pandaCoinData[userId].lastDaily;
@@ -1915,7 +2001,7 @@ function canClaimDaily(userId) {
 // Update last daily claim time
 function updateLastDaily(userId) {
   if (!pandaCoinData[userId]) {
-    pandaCoinData[userId] = { coins: 0, lastDaily: 0, inventory: {}, archive: {} };
+    pandaCoinData[userId] = { coins: 0, lastDaily: 0, inventory: {}, archive: {}, level: 1, exp: 0 };
   }
   pandaCoinData[userId].lastDaily = Date.now();
   savePandaCoinData();
@@ -1924,7 +2010,7 @@ function updateLastDaily(userId) {
 // Archive tracking functions
 function getUserArchive(userId) {
   if (!pandaCoinData[userId]) {
-    pandaCoinData[userId] = { coins: 0, lastDaily: 0, inventory: {}, archive: {} };
+    pandaCoinData[userId] = { coins: 0, lastDaily: 0, inventory: {}, archive: {}, level: 1, exp: 0 };
   }
   if (!pandaCoinData[userId].archive) {
     pandaCoinData[userId].archive = {};
@@ -1948,6 +2034,78 @@ function markItemDiscovered(userId, itemName) {
 function isItemDiscovered(userId, itemName) {
   const archive = getUserArchive(userId);
   return archive[itemName] && archive[itemName].discovered;
+}
+
+// Level system functions
+function getUserLevel(userId) {
+  if (!pandaCoinData[userId]) {
+    pandaCoinData[userId] = { coins: 0, lastDaily: 0, inventory: {}, archive: {}, level: 1, exp: 0 };
+  }
+  if (!pandaCoinData[userId].level) {
+    pandaCoinData[userId].level = 1;
+  }
+  if (!pandaCoinData[userId].exp) {
+    pandaCoinData[userId].exp = 0;
+  }
+  return {
+    level: pandaCoinData[userId].level,
+    exp: pandaCoinData[userId].exp
+  };
+}
+
+// Calculate experience required for next level
+function getExpForLevel(level) {
+  return Math.floor(100 * Math.pow(1.5, level - 1));
+}
+
+// Add experience and handle level-ups
+function addExperience(userId, expAmount) {
+  const userData = getUserLevel(userId);
+  const currentLevel = userData.level;
+  const currentExp = userData.exp;
+  
+  // Add experience
+  pandaCoinData[userId].exp = currentExp + expAmount;
+  
+  // Check for level-ups
+  let newLevel = currentLevel;
+  let expForNextLevel = getExpForLevel(currentLevel);
+  let remainingExp = pandaCoinData[userId].exp;
+  
+  while (remainingExp >= expForNextLevel) {
+    remainingExp -= expForNextLevel;
+    newLevel++;
+    expForNextLevel = getExpForLevel(newLevel);
+  }
+  
+  // Update level and remaining exp
+  pandaCoinData[userId].level = newLevel;
+  pandaCoinData[userId].exp = remainingExp;
+  
+  savePandaCoinData();
+  
+  // Return level-up info
+  return {
+    leveledUp: newLevel > currentLevel,
+    oldLevel: currentLevel,
+    newLevel: newLevel,
+    expGained: expAmount,
+    expForNext: getExpForLevel(newLevel),
+    currentExp: remainingExp
+  };
+}
+
+// Get level progress information
+function getLevelProgress(userId) {
+  const userData = getUserLevel(userId);
+  const expForNext = getExpForLevel(userData.level);
+  
+  return {
+    level: userData.level,
+    currentExp: userData.exp,
+    expForNext: expForNext,
+    progress: (userData.exp / expForNext) * 100
+  };
 }
 
 // Define slash commands
@@ -2128,6 +2286,7 @@ const commands = [
     name: 'dungeon',
     description: 'Enter the dungeon to fight enemies and collect gear (30min cooldown per enemy)'
   },
+
   {
     name: 'grant',
     description: 'Grant a role to a user (Admin only)',
@@ -2369,17 +2528,27 @@ const commands = [
       }
     ]
   },
-  {
+    {
     name: 'reload',
     description: 'Reload data from file (admin only)'
   },
   {
     name: 'quest',
-    description: 'View your active quests and progress'
-  },
-  {
-    name: 'giveall',
-    description: 'Give yourself all items in the game for testing (Admin only)'
+    description: 'View your active quests and progress',
+    options: [
+      {
+        name: 'mode',
+        description: 'Type of quest to view',
+        type: 3,
+        required: true,
+        choices: [
+          {
+            name: 'Story Quests',
+            value: 'story'
+          }
+        ]
+      }
+    ]
   }
 ];
 
@@ -2415,7 +2584,12 @@ client.once('ready', async () => {
 
 // Handle slash command interactions
 client.on('interactionCreate', async interaction => {
+  console.log('Interaction received:', interaction.type, interaction.commandName);
   if (!interaction.isCommand() && !interaction.isButton() && !interaction.isAutocomplete()) return;
+  
+  if (interaction.isCommand()) {
+    console.log('Processing command:', interaction.commandName);
+  }
 
   // Handle autocomplete interactions
   if (interaction.isAutocomplete()) {
@@ -2674,7 +2848,47 @@ client.on('interactionCreate', async interaction => {
 
           // Check if player is already in battle
           if (activeBattles.has(user.id)) {
-            await interaction.reply({ content: '❌ You are already in battle! Finish your current fight first.', ephemeral: true });
+            const quitBattleEmbed = {
+              color: 0xFFA500, // Orange for warning
+              title: '⚔️ **Battle Already in Progress**',
+              description: 'You are currently in a battle! Do you want to quit your current fight and start a new one?',
+              fields: [
+                {
+                  name: '⚠️ Warning',
+                  value: 'Quitting your current battle will forfeit any progress and you won\'t receive rewards.',
+                  inline: false
+                }
+              ],
+              footer: {
+                text: 'Choose your action carefully!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+
+            const quitButtons = [
+              {
+                type: 2,
+                style: 4, // Red for danger
+                label: '❌ QUIT CURRENT BATTLE',
+                custom_id: `quit_battle_${user.id}`,
+                emoji: { name: '⚔️' }
+              },
+              {
+                type: 2,
+                style: 2, // Gray for cancel
+                label: '🔙 CANCEL',
+                custom_id: `cancel_quit_battle_${user.id}`,
+                emoji: { name: '🛡️' }
+              }
+            ];
+
+            const actionRow = {
+              type: 1,
+              components: quitButtons
+            };
+
+            await interaction.reply({ embeds: [quitBattleEmbed], components: [actionRow] });
             break;
           }
 
@@ -2756,7 +2970,47 @@ client.on('interactionCreate', async interaction => {
 
           // Check if player is already in battle
           if (activeBattles.has(user.id)) {
-            await interaction.reply({ content: '❌ You are already in battle! Finish your current fight first.', ephemeral: true });
+            const quitBattleEmbed = {
+              color: 0xFFA500, // Orange for warning
+              title: '⚔️ **Battle Already in Progress**',
+              description: 'You are currently in a battle! Do you want to quit your current fight and start a new one?',
+              fields: [
+                {
+                  name: '⚠️ Warning',
+                  value: 'Quitting your current battle will forfeit any progress and you won\'t receive rewards.',
+                  inline: false
+                }
+              ],
+              footer: {
+                text: 'Choose your action carefully!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+
+            const quitButtons = [
+              {
+                type: 2,
+                style: 4, // Red for danger
+                label: '❌ QUIT CURRENT BATTLE',
+                custom_id: `quit_battle_${user.id}`,
+                emoji: { name: '⚔️' }
+              },
+              {
+                type: 2,
+                style: 2, // Gray for cancel
+                label: '🔙 CANCEL',
+                custom_id: `cancel_quit_battle_${user.id}`,
+                emoji: { name: '🛡️' }
+              }
+            ];
+
+            const actionRow = {
+              type: 1,
+              components: quitButtons
+            };
+
+            await interaction.reply({ embeds: [quitBattleEmbed], components: [actionRow] });
             break;
           }
 
@@ -2841,7 +3095,47 @@ client.on('interactionCreate', async interaction => {
 
           // Check if player is already in battle
           if (activeBattles.has(user.id)) {
-            await interaction.reply({ content: '❌ You are already in battle! Finish your current fight first.', ephemeral: true });
+            const quitBattleEmbed = {
+              color: 0xFFA500, // Orange for warning
+              title: '⚔️ **Battle Already in Progress**',
+              description: 'You are currently in a battle! Do you want to quit your current fight and start a new one?',
+              fields: [
+                {
+                  name: '⚠️ Warning',
+                  value: 'Quitting your current battle will forfeit any progress and you won\'t receive rewards.',
+                  inline: false
+                }
+              ],
+              footer: {
+                text: 'Choose your action carefully!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+
+            const quitButtons = [
+              {
+                type: 2,
+                style: 4, // Red for danger
+                label: '❌ QUIT CURRENT BATTLE',
+                custom_id: `quit_battle_${user.id}`,
+                emoji: { name: '⚔️' }
+              },
+              {
+                type: 2,
+                style: 2, // Gray for cancel
+                label: '🔙 CANCEL',
+                custom_id: `cancel_quit_battle_${user.id}`,
+                emoji: { name: '🛡️' }
+              }
+            ];
+
+            const actionRow = {
+              type: 1,
+              components: quitButtons
+            };
+
+            await interaction.reply({ embeds: [quitBattleEmbed], components: [actionRow] });
             break;
           }
 
@@ -2939,7 +3233,10 @@ client.on('interactionCreate', async interaction => {
         }
         break;
 
-
+      case 'test':
+        console.log('🧪 TEST CASE REACHED!');
+        await interaction.reply('🧪 Test case working!');
+        break;
 
         // Archive navigation buttons
         case 'archive_prev_1':
@@ -2973,7 +3270,8 @@ client.on('interactionCreate', async interaction => {
                   'goblin mask',
                   'knight\'s rusty helmet', 
                   'old worn helmet',
-                  'shiny reindeer antlers'
+                  'shiny reindeer antlers',
+                  'fortified steel helmet'
                 ],
                 description: 'Protective headgear that grants defense and health bonuses.'
               },
@@ -2982,7 +3280,8 @@ client.on('interactionCreate', async interaction => {
                 items: [
                   'goblin clothing',
                   'knight\'s rusty armor',
-                  'old worn armor'
+                  'old worn armor',
+                  'fortified steel armor'
                 ],
                 description: 'Body protection that provides defense and health bonuses.'
               },
@@ -2994,7 +3293,8 @@ client.on('interactionCreate', async interaction => {
                   'knight\'s rusty blade',
                   'bow & arrow',
                   'shovel',
-                  'spear'
+                  'spear',
+                  'fortified steel waraxe'
                 ],
                 description: 'Weapons for combat and tools for gathering resources.'
               },
@@ -3015,21 +3315,25 @@ client.on('interactionCreate', async interaction => {
                   'reindeer skin',
                   'wolf pelt',
                   'bear claw',
-                  'golden deer antler'
+                  'golden deer antler',
+                  'orc\'s eyeball',
+                  'orc\'s hidden jewel'
                 ],
                 description: 'Valuable materials that can be sold to merchants.'
               },
               6: {
                 title: '🧪 **Consumables & Potions**',
                 items: [
-                  'potion in bottle'
+                  'small potion',
+                  'small mana potion'
                 ],
                 description: 'Items that provide temporary effects or healing.'
               },
               7: {
                 title: '🐎 **Mounts & Rides**',
                 items: [
-                  'horse'
+                  'horse',
+                  'orc mount'
                 ],
                 description: 'Transportation that provides speed bonuses.'
               }
@@ -3344,6 +3648,340 @@ client.on('interactionCreate', async interaction => {
             }
             break;
           }
+          
+          // Handle quest reward claiming
+          if (customId === 'claim_quest_dig10') {
+            const digUserQuestData = getUserQuestData(user.id);
+            
+            if (!digUserQuestData.completedQuests.dig10) {
+              await interaction.reply({ content: '❌ Quest not completed yet! Dig 10 times first.', ephemeral: true });
+              break;
+            }
+
+            if (digUserQuestData.completedQuests.dig10.claimed) {
+              await interaction.reply({ content: '❌ You have already claimed this quest reward!', ephemeral: true });
+              break;
+            }
+
+            const digReward = digUserQuestData.completedQuests.dig10.reward;
+            addCoins(user.id, digReward, interaction.guild);
+            digUserQuestData.completedQuests.dig10.claimed = true;
+            saveQuestData();
+
+            const digClaimEmbed = {
+              color: 0x00FF00,
+              title: '🎁 **Quest Reward Claimed!**',
+              description: 'Congratulations on completing your quest!',
+              fields: [
+                {
+                  name: '🎯 Quest Completed',
+                  value: '**Dig Apprentice**',
+                  inline: true
+                },
+                {
+                  name: '💰 Reward Received',
+                  value: `+${digReward} Panda Coins 🐼`,
+                  inline: true
+                },
+                {
+                  name: '🎯 New Balance',
+                  value: `${getUserCoins(user.id)} Panda Coins 🐼`,
+                  inline: false
+                },
+                {
+                  name: '🎯 Next Quest',
+                  value: '**Dungeon Preparation** - Achieve 10 total power to prepare for battle!',
+                  inline: false
+                }
+              ],
+              footer: {
+                text: '🎯 Next quest coming soon, for now you\'ve done well!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+
+            await interaction.reply({ embeds: [digClaimEmbed] });
+            break;
+          }
+
+          if (customId === 'claim_quest_power10') {
+            const powerUserQuestData = getUserQuestData(user.id);
+            
+            if (!powerUserQuestData.completedQuests.power10) {
+              await interaction.reply({ content: '❌ Quest not completed yet! Achieve 10 total power first.', ephemeral: true });
+              break;
+            }
+
+            if (powerUserQuestData.completedQuests.power10.claimed) {
+              await interaction.reply({ content: '❌ You have already claimed this quest reward!', ephemeral: true });
+              break;
+            }
+
+            const powerReward = powerUserQuestData.completedQuests.power10.reward;
+            addCoins(user.id, powerReward, interaction.guild);
+            powerUserQuestData.completedQuests.power10.claimed = true;
+            saveQuestData();
+
+            const powerClaimEmbed = {
+              color: 0x00FF00,
+              title: '🎁 **Quest Reward Claimed!**',
+              description: 'Congratulations on completing your quest!',
+              fields: [
+                {
+                  name: '🎯 Quest Completed',
+                  value: '**Dungeon Preparation**',
+                  inline: true
+                },
+                {
+                  name: '💰 Reward Received',
+                  value: `+${powerReward} Panda Coins 🐼`,
+                  inline: true
+                },
+                {
+                  name: '🎯 New Balance',
+                  value: `${getUserCoins(user.id)} Panda Coins 🐼`,
+                  inline: false
+                },
+                {
+                  name: '🎯 Next Quest',
+                  value: '**Goblin Slayer** - Defeat the goblin enemy in the dungeon!',
+                  inline: false
+                }
+              ],
+              footer: {
+                text: '🎯 Next quest coming soon, for now you\'ve done well!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+
+            await interaction.reply({ embeds: [powerClaimEmbed] });
+            break;
+          }
+
+          if (customId === 'claim_quest_power25') {
+            const power25UserQuestData = getUserQuestData(user.id);
+            
+            if (!power25UserQuestData.completedQuests.power25) {
+              await interaction.reply({ content: '❌ Quest not completed yet! Achieve 25 total power first.', ephemeral: true });
+              break;
+            }
+
+            if (power25UserQuestData.completedQuests.power25.claimed) {
+              await interaction.reply({ content: '❌ You have already claimed this quest reward!', ephemeral: true });
+              break;
+            }
+
+            const power25Reward = power25UserQuestData.completedQuests.power25.reward;
+            addCoins(user.id, power25Reward, interaction.guild);
+            power25UserQuestData.completedQuests.power25.claimed = true;
+            saveQuestData();
+
+            const power25ClaimEmbed = {
+              color: 0x00FF00,
+              title: '🎁 **Quest Reward Claimed!**',
+              description: 'Congratulations on becoming a legendary warrior!',
+              fields: [
+                {
+                  name: '🎯 Quest Completed',
+                  value: '**Legendary Warrior**',
+                  inline: true
+                },
+                {
+                  name: '💰 Reward Received',
+                  value: `+${power25Reward} Panda Coins 🐼`,
+                  inline: true
+                },
+                {
+                  name: '🎯 New Balance',
+                  value: `${getUserCoins(user.id)} Panda Coins 🐼`,
+                  inline: false
+                },
+                {
+                  name: '🎯 Achievement',
+                  value: '**Legendary Status Achieved!** You\'ve reached the pinnacle of power! 🏆',
+                  inline: false
+                }
+              ],
+              footer: {
+                text: '🎯 You are now a legendary warrior! More quests coming soon!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+
+            await interaction.reply({ embeds: [power25ClaimEmbed] });
+            break;
+          }
+
+          if (customId === 'claim_quest_orcDefeat') {
+            const orcUserQuestData = getUserQuestData(user.id);
+            
+            if (!orcUserQuestData.completedQuests.orcDefeat) {
+              await interaction.reply({ content: '❌ Quest not completed yet! Defeat The Orc Enemy first.', ephemeral: true });
+              break;
+            }
+
+            if (orcUserQuestData.completedQuests.orcDefeat.claimed) {
+              await interaction.reply({ content: '❌ You have already claimed this quest reward!', ephemeral: true });
+              break;
+            }
+
+            const orcReward = orcUserQuestData.completedQuests.orcDefeat.reward;
+            addCoins(user.id, orcReward, interaction.guild);
+            orcUserQuestData.completedQuests.orcDefeat.claimed = true;
+            saveQuestData();
+
+            const orcClaimEmbed = {
+              color: 0x00FF00,
+              title: '🎁 **Quest Reward Claimed!**',
+              description: 'Congratulations on becoming the ultimate warrior!',
+              fields: [
+                {
+                  name: '🎯 Quest Completed',
+                  value: '**Orc Slayer**',
+                  inline: true
+                },
+                {
+                  name: '💰 Reward Received',
+                  value: `+${orcReward} Panda Coins 🐼`,
+                  inline: true
+                },
+                {
+                  name: '🎯 New Balance',
+                  value: `${getUserCoins(user.id)} Panda Coins 🐼`,
+                  inline: false
+                },
+                {
+                  name: '🎯 Achievement',
+                  value: '**Ultimate Warrior Status Achieved!** You\'ve defeated the mightiest enemy! 🏆',
+                  inline: false
+                }
+              ],
+              footer: {
+                text: '🎯 You are now the ultimate warrior! More quests coming soon!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+
+            await interaction.reply({ embeds: [orcClaimEmbed] });
+            break;
+          }
+
+
+
+          if (customId === 'claim_quest_goblinDefeat') {
+            const goblinUserQuestData = getUserQuestData(user.id);
+            
+            if (!goblinUserQuestData.completedQuests.goblinDefeat) {
+              await interaction.reply({ content: '❌ Quest not completed yet! Defeat the goblin first.', ephemeral: true });
+              break;
+            }
+
+            if (goblinUserQuestData.completedQuests.goblinDefeat.claimed) {
+              await interaction.reply({ content: '❌ You have already claimed this quest reward!', ephemeral: true });
+              break;
+            }
+
+            const goblinReward = goblinUserQuestData.completedQuests.goblinDefeat.reward;
+            addCoins(user.id, goblinReward, interaction.guild);
+            goblinUserQuestData.completedQuests.goblinDefeat.claimed = true;
+            saveQuestData();
+
+            const goblinClaimEmbed = {
+              color: 0x00FF00,
+              title: '🎁 **Quest Reward Claimed!**',
+              description: 'Congratulations on completing your quest!',
+              fields: [
+                {
+                  name: '🎯 Quest Completed',
+                  value: '**Goblin Slayer**',
+                  inline: true
+                },
+                {
+                  name: '💰 Reward Received',
+                  value: `+${goblinReward} Panda Coins 🐼`,
+                  inline: true
+                },
+                {
+                  name: '🎯 New Balance',
+                  value: `${getUserCoins(user.id)} Panda Coins 🐼`,
+                  inline: false
+                },
+                {
+                  name: '🎯 Quest Chain',
+                  value: '**Complete!** You\'ve finished all available quests! 🎉',
+                  inline: false
+                }
+              ],
+              footer: {
+                text: '🎯 You\'re a true warrior! More quests coming soon!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+
+            await interaction.reply({ embeds: [goblinClaimEmbed] });
+            break;
+          }
+
+          if (customId === 'claim_quest_hunt20') {
+            const huntUserQuestData = getUserQuestData(user.id);
+            
+            if (!huntUserQuestData.completedQuests.hunt20) {
+              await interaction.reply({ content: '❌ Quest not completed yet! Hunt 20 times first.', ephemeral: true });
+              break;
+            }
+
+            if (huntUserQuestData.completedQuests.hunt20.claimed) {
+              await interaction.reply({ content: '❌ You have already claimed this quest reward!', ephemeral: true });
+              break;
+            }
+
+            const huntReward = huntUserQuestData.completedQuests.hunt20.reward;
+            addCoins(user.id, huntReward, interaction.guild);
+            huntUserQuestData.completedQuests.hunt20.claimed = true;
+            saveQuestData();
+
+            const huntClaimEmbed = {
+              color: 0x00FF00,
+              title: '🎁 **Quest Reward Claimed!**',
+              description: 'Congratulations on completing your quest!',
+              fields: [
+                {
+                  name: '🎯 Quest Completed',
+                  value: '**Master Hunter**',
+                  inline: true
+                },
+                {
+                  name: '💰 Reward Received',
+                  value: `+${huntReward} Panda Coins 🐼`,
+                  inline: true
+                },
+                {
+                  name: '🎯 New Balance',
+                  value: `${getUserCoins(user.id)} Panda Coins 🐼`,
+                  inline: false
+                },
+                {
+                  name: '🎯 Quest Chain',
+                  value: '**Complete!** You\'ve finished all available quests! 🎉',
+                  inline: false
+                }
+              ],
+              footer: {
+                text: '🎯 You\'re a true warrior and master hunter! More quests coming soon!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+
+            await interaction.reply({ embeds: [huntClaimEmbed] });
+            break;
+          }
+          
           // Handle merchant buying buttons
           if (customId.startsWith('buy_small_potion_')) {
             const parts = customId.split('_');
@@ -3562,192 +4200,72 @@ client.on('interactionCreate', async interaction => {
             break;
           }
 
-          // Handle quest reward claiming
-          if (customId === 'claim_quest_dig10') {
-            const userQuestData = getUserQuestData(user.id);
-            
-            if (!userQuestData.completedQuests.dig10) {
-              await interaction.reply({ content: '❌ Quest not completed yet! Complete the Dig Apprentice quest first.', ephemeral: true });
-              break;
-            }
 
-            if (userQuestData.completedQuests.dig10.claimed) {
-              await interaction.reply({ content: '❌ You have already claimed this quest reward!', ephemeral: true });
-              break;
-            }
-
-            // Claim the reward
-            const reward = userQuestData.completedQuests.dig10.reward;
-            addCoins(user.id, reward, interaction.guild);
-            userQuestData.completedQuests.dig10.claimed = true;
-            saveQuestData();
-
-            const claimEmbed = {
-              color: 0x00FF00,
-              title: '🎁 **Quest Reward Claimed!**',
-              description: 'Congratulations on completing your quest!',
-              fields: [
-                {
-                  name: '🏆 Quest Completed',
-                  value: '**Dig Apprentice**',
-                  inline: true
-                },
-                {
-                  name: '💰 Reward Received',
-                  value: `+${reward} Panda Coins 🐼`,
-                  inline: true
-                },
-                {
-                  name: '🎯 New Balance',
-                  value: `${getUserCoins(user.id)} Panda Coins 🐼`,
-                  inline: false
-                },
-                {
-                  name: '🎯 Next Quest',
-                  value: '**Coming Soon!** For now, you\'ve done well! 🎉',
-                  inline: false
-                }
-              ],
-              footer: {
-                text: '🎯 Keep completing quests to earn more rewards!',
-                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
-              },
-              timestamp: new Date().toISOString()
-            };
-
-            await interaction.reply({ embeds: [claimEmbed] });
-
-            // Check for role assignments
-            if (interaction.guild) {
-              await checkAndAssignRoles(user.id, interaction.guild.id, interaction.guild);
-            }
-            break;
-          }
-
-          // Handle power quest reward claiming
-          if (customId === 'claim_quest_power10') {
-            const powerUserQuestData = getUserQuestData(user.id);
-            
-            if (!powerUserQuestData.completedQuests.power10) {
-              await interaction.reply({ content: '❌ Quest not completed yet! Reach 10 total power first.', ephemeral: true });
-              break;
-            }
-
-            if (powerUserQuestData.completedQuests.power10.claimed) {
-              await interaction.reply({ content: '❌ You have already claimed this quest reward!', ephemeral: true });
-              break;
-            }
-
-            // Claim the reward
-            const powerReward = powerUserQuestData.completedQuests.power10.reward;
-            addCoins(user.id, powerReward, interaction.guild);
-            powerUserQuestData.completedQuests.power10.claimed = true;
-            saveQuestData();
-
-            const powerClaimEmbed = {
-              color: 0x00FF00,
-              title: '🎁 **Quest Reward Claimed!**',
-              description: 'Congratulations on completing your quest!',
-              fields: [
-                {
-                  name: '🏆 Quest Completed',
-                  value: '**Dungeon Preparation**',
-                  inline: true
-                },
-                {
-                  name: '💰 Reward Received',
-                  value: `+${powerReward} Panda Coins 🐼`,
-                  inline: true
-                },
-                {
-                  name: '🎯 New Balance',
-                  value: `${getUserCoins(user.id)} Panda Coins 🐼`,
-                  inline: false
-                },
-                {
-                  name: '🎯 Next Quest',
-                  value: '**Goblin Slayer** - Defeat the goblin enemy in the dungeon! 🗡️',
-                  inline: false
-                }
-              ],
-              footer: {
-                text: '🎯 Keep completing quests to earn more rewards!',
-                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
-              },
-              timestamp: new Date().toISOString()
-            };
-
-            await interaction.reply({ embeds: [powerClaimEmbed] });
-
-            // Check for role assignments
-            if (interaction.guild) {
-              await checkAndAssignRoles(user.id, interaction.guild.id, interaction.guild);
-            }
-            break;
-          }
-
-          // Handle goblin quest reward claiming
-          if (customId === 'claim_quest_goblinDefeat') {
-            const goblinUserQuestData = getUserQuestData(user.id);
-            
-            if (!goblinUserQuestData.completedQuests.goblinDefeat) {
-              await interaction.reply({ content: '❌ Quest not completed yet! Defeat the goblin first.', ephemeral: true });
-              break;
-            }
-
-            if (goblinUserQuestData.completedQuests.goblinDefeat.claimed) {
-              await interaction.reply({ content: '❌ You have already claimed this quest reward!', ephemeral: true });
-              break;
-            }
-
-            // Claim the reward
-            const goblinReward = goblinUserQuestData.completedQuests.goblinDefeat.reward;
-            addCoins(user.id, goblinReward, interaction.guild);
-            goblinUserQuestData.completedQuests.goblinDefeat.claimed = true;
-            saveQuestData();
-
-            const goblinClaimEmbed = {
-              color: 0x00FF00,
-              title: '🎁 **Quest Reward Claimed!**',
-              description: 'Congratulations on completing your quest!',
-              fields: [
-                {
-                  name: '🏆 Quest Completed',
-                  value: '**Goblin Slayer**',
-                  inline: true
-                },
-                {
-                  name: '💰 Reward Received',
-                  value: `+${goblinReward} Panda Coins 🐼`,
-                  inline: true
-                },
-                {
-                  name: '🎯 New Balance',
-                  value: `${getUserCoins(user.id)} Panda Coins 🐼`,
-                  inline: false
-                },
-                {
-                  name: '🎯 Quest Chain',
-                  value: '**Complete!** You\'ve finished all available quests! 🎉',
-                  inline: false
-                }
-              ],
-              footer: {
-                text: '🎯 You\'re a true warrior! More quests coming soon!',
-                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
-              },
-              timestamp: new Date().toISOString()
-            };
-
-            await interaction.reply({ embeds: [goblinClaimEmbed] });
-
-            // Check for role assignments
-            if (interaction.guild) {
-              await checkAndAssignRoles(user.id, interaction.guild.id, interaction.guild);
-            }
-            break;
-          }
           
+          // Handle quit battle functionality
+          if (customId.startsWith('quit_battle_')) {
+            const userId = customId.split('_')[2];
+            
+            if (userId !== user.id) {
+              await interaction.reply({ content: '❌ This battle control is not for you!', ephemeral: true });
+              break;
+            }
+
+            // Remove player from active battles
+            activeBattles.delete(user.id);
+            
+            const quitSuccessEmbed = {
+              color: 0x00FF00, // Green for success
+              title: '⚔️ **Battle Quit Successfully**',
+              description: 'You have quit your current battle. You can now start a new fight!',
+              fields: [
+                {
+                  name: '🔄 Status',
+                  value: 'Battle state cleared - ready for new battle',
+                  inline: false
+                }
+              ],
+              footer: {
+                text: 'Choose your next opponent wisely!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+
+            await interaction.update({ embeds: [quitSuccessEmbed], components: [] });
+            break;
+          }
+
+          if (customId.startsWith('cancel_quit_battle_')) {
+            const cancelUserId = customId.split('_')[3];
+            
+            if (cancelUserId !== user.id) {
+              await interaction.reply({ content: '❌ This battle control is not for you!', ephemeral: true });
+              break;
+            }
+
+            const cancelEmbed = {
+              color: 0x808080, // Gray for cancel
+              title: '🛡️ **Battle Quit Cancelled**',
+              description: 'You chose to keep your current battle. Continue fighting!',
+              fields: [
+                {
+                  name: '⚔️ Status',
+                  value: 'Current battle maintained - no changes made',
+                  inline: false
+                }
+              ],
+              footer: {
+                text: 'Continue your current fight!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+
+            await interaction.update({ embeds: [cancelEmbed], components: [] });
+            break;
+          }
+
           // Default case for unknown buttons
           await interaction.reply({ content: 'Unknown button interaction!', ephemeral: true });
           break;
@@ -3773,27 +4291,67 @@ client.on('interactionCreate', async interaction => {
 
   const { commandName, user, member, guild } = interaction;
 
+  console.log('Switch statement reached for command:', commandName);
+  console.log('Command name type:', typeof commandName);
+  console.log('Command name length:', commandName.length);
+  console.log('Command name bytes:', Buffer.from(commandName).toString('hex'));
+
   try {
     switch (commandName) {
       case 'ping':
         await interaction.reply('Pong!');
         break;
 
+
       case 'pocket':
+        console.log(`🔍 /pocket command called by user: ${user.id}`);
+        
         const userId = user.id;
 
-        // Always allow claiming, but show countdown after
-        addCoins(userId, 3, guild);
-        updateLastDaily(userId);
-        const totalCoins = getUserCoins(userId);
-        const pocketAssignedRole = await checkAndAssignRoles(userId, guild.id, guild);
-        let pocketResponse = `🐼 You claimed your reward! +3 Panda Coins\n💰 You now have ${totalCoins} Panda Coins!\n⏰ Next claim available in 5 hours`;
-
-        if (pocketAssignedRole) {
-          pocketResponse += `\n🎉 Congratulations! You've earned the **${pocketAssignedRole.name}** role!`;
+        // Initialize user data if it doesn't exist
+        if (!pandaCoinData[userId]) {
+          console.log(`  - Initializing new user data for ${userId}`);
+          pandaCoinData[userId] = { coins: 0, lastDaily: 0, inventory: {}, archive: {} };
         }
 
-        await interaction.reply(pocketResponse);
+        const currentTime = Date.now();
+        const lastDaily = pandaCoinData[userId].lastDaily || 0;
+        const fiveHours = 5 * 60 * 60 * 1000; // 5 hours in milliseconds
+
+        console.log(`  - Current time: ${currentTime}`);
+        console.log(`  - Last claim: ${lastDaily}`);
+        console.log(`  - Time difference: ${currentTime - lastDaily}ms`);
+        console.log(`  - Cooldown: ${fiveHours}ms`);
+
+        if (currentTime - lastDaily >= fiveHours) {
+          console.log(`  - Can claim reward`);
+          // Can claim reward
+          addCoins(userId, 3, guild);
+          pandaCoinData[userId].lastDaily = currentTime;
+          savePandaCoinData();
+          
+          const totalCoins = getUserCoins(userId);
+          const assignedRole = await checkAndAssignRoles(userId, guild.id, guild);
+          let response = `🐼 You claimed your reward! +3 Panda Coins\n💰 You now have ${totalCoins} Panda Coins!`;
+
+          if (assignedRole) {
+            response += `\n🎉 Congratulations! You've earned the **${assignedRole.name}** role!`;
+          }
+
+          console.log(`  - Sending response: ${response}`);
+          await interaction.reply(response);
+        } else {
+          console.log(`  - Cannot claim yet`);
+          // Cannot claim yet
+          const nextClaim = lastDaily + fiveHours;
+          const timeLeft = nextClaim - currentTime;
+          const hoursLeft = Math.floor(timeLeft / (60 * 60 * 1000));
+          const minutesLeft = Math.floor((timeLeft % (60 * 60 * 1000)) / (60 * 1000));
+
+          const cooldownResponse = `🐼 You've already claimed your reward!\n⏰ Come back in ${hoursLeft}h ${minutesLeft}m for your next reward.`;
+          console.log(`  - Sending cooldown response: ${cooldownResponse}`);
+          await interaction.reply(cooldownResponse);
+        }
         break;
 
       case 'wallet':
@@ -4121,7 +4679,7 @@ client.on('interactionCreate', async interaction => {
         }
 
         // Add Weapons section
-        const weapons = Object.entries(userGear.weapon || {});
+        const weapons = Object.entries(userGear.weapon);
         if (weapons.length > 0) {
           const weaponList = weapons.map(([weapon, quantity]) => {
             const equipped = userEquipped.weapon === weapon ? ' ⚡ **[EQUIPPED]**' : '';
@@ -4167,7 +4725,7 @@ client.on('interactionCreate', async interaction => {
         }
 
         // Add Helmets section
-        const helmets = Object.entries(userGear.helmet || {});
+        const helmets = Object.entries(userGear.helmet);
         if (helmets.length > 0) {
           const helmetList = helmets.map(([helmet, quantity]) => {
             const equipped = userEquipped.helmet === helmet ? ' ⚡ **[EQUIPPED]**' : '';
@@ -4203,7 +4761,7 @@ client.on('interactionCreate', async interaction => {
         }
 
         // Add Armor section
-        const armor = Object.entries(userGear.armor || {});
+        const armor = Object.entries(userGear.armor);
         if (armor.length > 0) {
           const armorList = armor.map(([piece, quantity]) => {
             const equipped = userEquipped.armor === piece ? ' ⚡ **[EQUIPPED]**' : '';
@@ -4239,7 +4797,7 @@ client.on('interactionCreate', async interaction => {
         }
 
         // Add Rides section
-        const rides = Object.entries(userGear.ride || {});
+        const rides = Object.entries(userGear.ride);
         if (rides.length > 0) {
           const rideList = rides.map(([ride, quantity]) => {
             const equipped = userEquipped.ride === ride ? ' ⚡ **[EQUIPPED]**' : '';
@@ -4434,13 +4992,12 @@ client.on('interactionCreate', async interaction => {
           response += `\n\n🎉 Congratulations! You've earned the **${assignedRole.name}** role!`;
         }
 
-        // Update quest progress
+        // Add quest tracking
         updateDigCount(user.id);
-        const userQuestData = getUserQuestData(user.id);
-        const questCompletion = checkQuestCompletion(user.id, 'dig', userQuestData.digCount);
-        
-        if (questCompletion.completed) {
-          response += `\n\n🎯 **QUEST COMPLETED: ${questCompletion.questName}**\n💰 Reward: ${questCompletion.reward} Panda Coins\n📝 ${questCompletion.description}\n🎁 Use /quest to claim your reward!`;
+        const digQuestCompletion = checkQuestCompletion(user.id, 'dig', 0);
+
+        if (digQuestCompletion.completed) {
+          response += `\n\n🎯 **QUEST COMPLETED: ${digQuestCompletion.questName}**\n💰 Reward: ${digQuestCompletion.reward} Panda Coins\n📝 ${digQuestCompletion.description}\n🎁 Use /quest to claim your reward!`;
         }
 
         await interaction.reply(response);
@@ -4535,7 +5092,19 @@ client.on('interactionCreate', async interaction => {
           huntMessage = 'A magnificent golden deer appears! This is incredibly rare! You carefully harvest its antler.';
         }
 
-        await interaction.reply(`🏹 ${huntMessage}\n\nYou found ${getItemEmote(huntReward.replace('a ', '').replace('an ', ''))} **${huntReward}**! ${spearMessage}`);
+        // Update hunt count for quest tracking
+        updateHuntCount(user.id);
+        
+        // Check for hunt quest completion
+        const huntQuestCompletion = checkQuestCompletion(user.id, 'hunt', 0);
+        
+        let huntResponse = `🏹 ${huntMessage}\n\nYou found ${getItemEmote(huntReward.replace('a ', '').replace('an ', ''))} **${huntReward}**! ${spearMessage}`;
+        
+        if (huntQuestCompletion.completed) {
+          huntResponse += `\n\n🎯 **QUEST COMPLETED: ${huntQuestCompletion.questName}**\n💰 Reward: ${huntQuestCompletion.reward} Panda Coins\n📝 ${huntQuestCompletion.description}\n🎁 Use /quest to claim your reward!`;
+        }
+        
+        await interaction.reply(huntResponse);
         break;
 
       case 'mute':
@@ -4755,7 +5324,7 @@ client.on('interactionCreate', async interaction => {
 
             // Update power count and check power quest completion after equipping
             updatePowerCount(user.id);
-            const powerQuestCompletion = checkQuestCompletion(user.id, 'power', 0); // count parameter not used for power quest
+            const powerQuestCompletion = checkQuestCompletion(user.id, 'power', 0);
 
             let response = `✅ ${categoryEmojis[gearCategory]} You equipped your **${itemName}**! Use \`/inventory\` to see your equipped gear.`;
 
@@ -4814,9 +5383,6 @@ client.on('interactionCreate', async interaction => {
           if (pandaCoinData[user.id] && pandaCoinData[user.id].equipped && pandaCoinData[user.id].equipped[unequipCategory]) {
             delete pandaCoinData[user.id].equipped[unequipCategory];
             savePandaCoinData();
-            
-            // Update power count after unequipping
-            updatePowerCount(user.id);
             
             const categoryEmojis = {
               weapon: '⚔️',
@@ -4890,7 +5456,7 @@ client.on('interactionCreate', async interaction => {
         // Calculate stat percentages for visual bars (fixed max of 20)
         const maxStatForBars = 20; // Fixed maximum for better visual representation
         const createStatBar = (value, maxValue) => {
-          const filled = Math.round((value / maxValue) * 10);
+          const filled = Math.max(0, Math.min(10, Math.round((value / maxValue) * 10)));
           return '█'.repeat(filled) + '░'.repeat(10 - filled);
         };
         
@@ -4996,10 +5562,14 @@ client.on('interactionCreate', async interaction => {
           });
         }
 
+        // Get level information
+        const levelInfo = getLevelProgress(user.id);
+        const levelDisplay = `🎯 **Level:** ${levelInfo.level} | ⭐ **EXP:** ${levelInfo.currentExp}/${levelInfo.expForNext} (${levelInfo.progress.toFixed(1)}%)`;
+        
         const playerEmbed = {
           color: rankColor,
           title: `${playerRank} ${user.username}`,
-          description: `**${rankDescription}**\n\n💪 **Total Power:** ${totalPower} | 🎯 **Level:** Coming Soon!`,
+          description: `**${rankDescription}**\n\n💪 **Total Power:** ${totalPower} | ${levelDisplay}`,
           thumbnail: {
             url: user.displayAvatarURL({ dynamic: true, size: 256 }),
           },
@@ -5285,6 +5855,8 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ embeds: [dungeonEmbed], components: [dungeonRow] });
         console.log('✅ Dungeon command completed successfully');
         break;
+
+
 
       case 'grant':
         // Check if user has administrator permission
@@ -5983,6 +6555,336 @@ client.on('interactionCreate', async interaction => {
         }
         break;
 
+      case 'quest':
+        console.log('🎯 QUEST CASE REACHED!');
+        console.log('🎯 Command name in case:', commandName);
+        console.log('🎯 Command name === "quest":', commandName === 'quest');
+        console.log('🎯 ABOUT TO REPLY!');
+        const questMode = interaction.options.getString('mode');
+        console.log('🎯 Quest mode:', questMode);
+        
+        if (questMode === 'story') {
+          const questUserData = getUserQuestData(user.id);
+          console.log('🎯 Quest user data:', questUserData);
+          
+          // Check which quest the user is on
+          const digCompleted = questUserData.completedQuests?.dig10;
+          const powerCompleted = questUserData.completedQuests?.power10;
+          const power25Completed = questUserData.completedQuests?.power25;
+          const goblinCompleted = questUserData.completedQuests?.goblinDefeat;
+          const huntCompleted = questUserData.completedQuests?.hunt20;
+          const orcCompleted = questUserData.completedQuests?.orcDefeat;
+          
+          let questEmbed;
+          let questButtons = [];
+          
+          // Quest 1: Dig 10 times
+          if (!digCompleted) {
+            const digProgress = questUserData.digCount || 0;
+            const isCompleted = digProgress >= 10;
+            
+            questEmbed = {
+              color: 0x8B4513,
+              title: '🎯 **Story Quest - Dig Apprentice**',
+              description: 'Begin your journey as a digger!',
+              fields: [
+                {
+                  name: '🔨 Dig Apprentice Quest',
+                  value: `**Progress:** ${digProgress}/10 digs completed\n**Reward:** 25 Panda Coins\n**Status:** ${isCompleted ? '✅ Completed' : '⏳ In Progress'}\n**💡 Hint:** Use /dig to dig for treasures!`,
+                  inline: false
+                }
+              ],
+              footer: {
+                text: '🎯 Complete this quest to unlock the next step!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+            
+            if (isCompleted) {
+              questButtons.push({
+                type: 2,
+                style: 3,
+                label: '🎁 CLAIM REWARD',
+                custom_id: 'claim_quest_dig10'
+              });
+            }
+          }
+          // Quest 2: Power 10 (if dig is completed)
+          else if (!powerCompleted) {
+            const powerProgress = questUserData.powerCount || 0;
+            const isCompleted = powerProgress >= 10;
+            
+            questEmbed = {
+              color: 0x8B4513,
+              title: '🎯 **Story Quest - Dungeon Preparation**',
+              description: 'You\'ve mastered digging! Now prepare for battle!',
+              fields: [
+                {
+                  name: '⚔️ Dungeon Preparation Quest',
+                  value: `**Progress:** ${powerProgress}/10 total power achieved\n**Reward:** 50 Panda Coins\n**Status:** ${isCompleted ? '✅ Completed' : '⏳ In Progress'}\n**💡 Hint:** Shop for weapons and armor, or dig for Old Worn Set pieces!`,
+                  inline: false
+                }
+              ],
+              footer: {
+                text: '🎯 Achieve 10 total power to prepare for your first dungeon enemy!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+            
+            if (isCompleted) {
+              questButtons.push({
+                type: 2,
+                style: 3,
+                label: '🎁 CLAIM REWARD',
+                custom_id: 'claim_quest_power10'
+              });
+            }
+          }
+          // Quest 3: Goblin Defeat (if power is completed)
+          else if (!goblinCompleted) {
+            const isCompleted = questUserData.goblinDefeated || false;
+            
+            questEmbed = {
+              color: 0x8B4513,
+              title: '🎯 **Story Quest - Goblin Slayer**',
+              description: 'You\'ve prepared for battle! Now face your first enemy!',
+              fields: [
+                {
+                  name: '👹 Goblin Slayer Quest',
+                  value: `**Progress:** ${isCompleted ? '1/1' : '0/1'} goblin defeated\n**Reward:** 75 Panda Coins\n**Status:** ${isCompleted ? '✅ Completed' : '⏳ In Progress'}\n**💡 Hint:** Use /dungeon goblin to fight the goblin enemy!`,
+                  inline: false
+                }
+              ],
+              footer: {
+                text: '🎯 Defeat the goblin to complete your first dungeon challenge!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+            
+            if (isCompleted) {
+              questButtons.push({
+                type: 2,
+                style: 3,
+                label: '🎁 CLAIM REWARD',
+                custom_id: 'claim_quest_goblinDefeat'
+              });
+            }
+          }
+          // Quest 4: Hunt 20 times (if goblin is completed)
+          else if (!huntCompleted) {
+            const huntProgress = questUserData.huntCount || 0;
+            const isCompleted = huntProgress >= 20;
+            
+            questEmbed = {
+              color: 0x8B4513,
+              title: '🎯 **Story Quest - Master Hunter**',
+              description: 'You\'ve defeated the goblin! Now become a master hunter!',
+              fields: [
+                {
+                  name: '🏹 Master Hunter Quest',
+                  value: `**Progress:** ${huntProgress}/20 hunts completed\n**Reward:** 100 Panda Coins\n**Status:** ${isCompleted ? '✅ Completed' : '⏳ In Progress'}\n**💡 Hint:** Use /hunt to hunt for animals and treasures!`,
+                  inline: false
+                }
+              ],
+              footer: {
+                text: '🎯 Hunt 20 times to become a master hunter!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+            
+            if (isCompleted) {
+              questButtons.push({
+                type: 2,
+                style: 3,
+                label: '🎁 CLAIM REWARD',
+                custom_id: 'claim_quest_hunt20'
+              });
+                        }
+          }
+          // Quest 5: Power 25 (if hunt is completed)
+          else if (!power25Completed) {
+            const powerProgress = questUserData.powerCount || 0;
+            const isCompleted = powerProgress >= 25;
+            
+            questEmbed = {
+              color: 0x8B4513,
+              title: '🎯 **Story Quest - Legendary Warrior**',
+              description: 'You\'ve become a master hunter! Now reach legendary status!',
+              fields: [
+                {
+                  name: '⚔️ Legendary Warrior Quest',
+                  value: `**Progress:** ${powerProgress}/25 total power achieved\n**Reward:** 125 Panda Coins\n**Status:** ${isCompleted ? '✅ Completed' : '⏳ In Progress'}\n**💡 Hint:** Collect powerful gear sets like Rusty Knight (26 power) or Fortified Steel!`,
+                  inline: false
+                }
+              ],
+              footer: {
+                text: '🎯 Achieve 25 total power to become a legendary warrior!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+            
+            if (isCompleted) {
+              questButtons.push({
+                type: 2,
+                style: 3,
+                label: '🎁 CLAIM REWARD',
+                custom_id: 'claim_quest_power25'
+              });
+            }
+          }
+          // Quest 6: Orc Defeat (if power25 is completed)
+          else if (!orcCompleted) {
+            const isCompleted = questUserData.orcDefeated || false;
+            
+            questEmbed = {
+              color: 0x8B4513,
+              title: '🎯 **Story Quest - Orc Slayer**',
+              description: 'You\'ve become a legendary warrior! Now face the mighty orc!',
+              fields: [
+                {
+                  name: '👹 Orc Slayer Quest',
+                  value: `**Progress:** ${isCompleted ? '1/1' : '0/1'} orc defeated\n**Reward:** 150 Panda Coins\n**Status:** ${isCompleted ? '✅ Completed' : '⏳ In Progress'}\n**💡 Hint:** Use /dungeon orc to fight The Orc Enemy!`,
+                  inline: false
+                }
+              ],
+              footer: {
+                text: '🎯 Defeat The Orc Enemy to become the ultimate warrior!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+            
+            if (isCompleted) {
+              questButtons.push({
+                type: 2,
+                style: 3,
+                label: '🎁 CLAIM REWARD',
+                custom_id: 'claim_quest_orcDefeat'
+              });
+            }
+          }
+          // Check for unclaimed quests first
+          else if (huntCompleted && !huntCompleted.claimed) {
+            // Hunt quest completed but not claimed
+            questEmbed = {
+              color: 0x8B4513,
+              title: '🎯 **Story Quest - Master Hunter**',
+              description: 'You\'ve completed the hunt quest! Claim your reward!',
+              fields: [
+                {
+                  name: '🏹 Master Hunter Quest',
+                  value: `**Progress:** 20/20 hunts completed\n**Reward:** 100 Panda Coins\n**Status:** ✅ Completed\n**💡 Hint:** Click the button below to claim your reward!`,
+                  inline: false
+                }
+              ],
+              footer: {
+                text: '🎯 Claim your reward to complete the story!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+            
+            questButtons.push({
+              type: 2,
+              style: 3,
+              label: '🎁 CLAIM REWARD',
+              custom_id: 'claim_quest_hunt20'
+            });
+          }
+          // Check for unclaimed power25 quest
+          else if (power25Completed && !power25Completed.claimed) {
+            // Power25 quest completed but not claimed
+            questEmbed = {
+              color: 0x8B4513,
+              title: '🎯 **Story Quest - Legendary Warrior**',
+              description: 'You\'ve completed the Legendary Warrior quest! Claim your reward!',
+              fields: [
+                {
+                  name: '⚔️ Legendary Warrior Quest',
+                  value: `**Progress:** 39/25 total power achieved\n**Reward:** 125 Panda Coins\n**Status:** ✅ Completed\n**💡 Hint:** Click the button below to claim your reward!`,
+                  inline: false
+                }
+              ],
+              footer: {
+                text: '🎯 Claim your reward to complete the story!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+            
+            questButtons.push({
+              type: 2,
+              style: 3,
+              label: '🎁 CLAIM REWARD',
+              custom_id: 'claim_quest_power25'
+            });
+          }
+          // Check for unclaimed orc quest
+          else if (orcCompleted && !orcCompleted.claimed) {
+            // Orc quest completed but not claimed
+            questEmbed = {
+              color: 0x8B4513,
+              title: '🎯 **Story Quest - Orc Slayer**',
+              description: 'You\'ve completed the Orc Slayer quest! Claim your reward!',
+              fields: [
+                {
+                  name: '👹 Orc Slayer Quest',
+                  value: `**Progress:** 1/1 orc defeated\n**Reward:** 150 Panda Coins\n**Status:** ✅ Completed\n**💡 Hint:** Click the button below to claim your reward!`,
+                  inline: false
+                }
+              ],
+              footer: {
+                text: '🎯 Claim your reward to complete the story!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+            
+            questButtons.push({
+              type: 2,
+              style: 3,
+              label: '🎁 CLAIM REWARD',
+              custom_id: 'claim_quest_orcDefeat'
+            });
+          }
+          // All quests completed
+          else {
+            questEmbed = {
+              color: 0x00FF00,
+              title: '🏆 **Story Quests Completed!**',
+              description: 'Congratulations! You\'ve completed all available story quests!',
+              fields: [
+                {
+                  name: '✅ Completed Quests',
+                  value: `**🔨 Dig Apprentice** - Completed on ${new Date(digCompleted.completedAt).toLocaleDateString()}\n**⚔️ Dungeon Preparation** - Completed on ${new Date(powerCompleted.completedAt).toLocaleDateString()}\n**👹 Goblin Slayer** - Completed on ${new Date(goblinCompleted.completedAt).toLocaleDateString()}\n**🏹 Master Hunter** - Completed on ${new Date(huntCompleted.completedAt).toLocaleDateString()}\n**⚔️ Legendary Warrior** - ${power25Completed ? `Completed on ${new Date(power25Completed.completedAt).toLocaleDateString()}` : 'Not completed yet'}\n**👹 Orc Slayer** - ${orcCompleted ? `Completed on ${new Date(orcCompleted.completedAt).toLocaleDateString()}` : 'Not completed yet'}\n\n🎉 You're a true warrior and master hunter!`,
+                  inline: false
+                }
+              ],
+              footer: {
+                text: '🎯 More quests coming soon!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+          }
+          
+          const actionRow = questButtons.length > 0 ? {
+            type: 1,
+            components: questButtons
+          } : null;
+          
+          await interaction.reply({
+            embeds: [questEmbed],
+            components: actionRow ? [actionRow] : []
+          });
+        }
+        break;
+
       case 'merchant':
         const merchantMode = interaction.options.getString('mode');
 
@@ -6414,304 +7316,6 @@ client.on('interactionCreate', async interaction => {
         }
         break;
 
-      case 'quest':
-        const questUserData = getUserQuestData(user.id);
-        updatePowerCount(user.id); // Update power count to ensure it's current
-        
-        // Determine which quest to show based on completion status
-        const digCompleted = questUserData.completedQuests.dig10;
-        const powerCompleted = questUserData.completedQuests.power10;
-        const goblinCompleted = questUserData.completedQuests.goblinDefeat;
-        
-        let questEmbed;
-        let questButtons = [];
-        
-        if (!digCompleted) {
-          // Show first quest (Dig Apprentice)
-          questEmbed = {
-            color: 0x8B4513, // Saddle brown for quest theme
-            title: '🎯 **Quest Chain - Step 1**',
-            description: 'Complete quests in order to unlock the next challenge!',
-            fields: [
-              {
-                name: '🔨 Dig Apprentice Quest',
-                value: `**Progress:** ${questUserData.digCount}/10 digs\n**Reward:** 20 Panda Coins\n**Status:** ${questUserData.digCount >= 10 ? '✅ Completed' : '⏳ In Progress'}\n**💡 Hint:** Use /dig to find treasures and complete this quest!`,
-                inline: false
-              }
-            ],
-            footer: {
-              text: '🎯 Complete this quest to unlock the next challenge!',
-              icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
-            },
-            timestamp: new Date().toISOString()
-          };
-          
-          // Add claim button if completed but not claimed
-          if (questUserData.digCount >= 10 && !digCompleted?.claimed) {
-            questButtons.push({
-              type: 2,
-              style: 3,
-              label: '🎁 CLAIM REWARD',
-              custom_id: 'claim_quest_dig10'
-            });
-          }
-        } else if (!powerCompleted) {
-          // Show second quest (Dungeon Preparation)
-          questEmbed = {
-            color: 0x8B4513, // Saddle brown for quest theme
-            title: '🎯 **Quest Chain - Step 2**',
-            description: 'You\'ve mastered digging! Now prepare for dungeons!',
-            fields: [
-              {
-                name: '⚔️ Dungeon Preparation Quest',
-                value: `**Progress:** ${questUserData.powerCount}/10 total power\n**Reward:** 50 Panda Coins\n**Status:** ${questUserData.powerCount >= 10 ? '✅ Completed' : '⏳ In Progress'}\n**💡 Hint:** Use /shop to buy weapons, or /dig for Old Worn Set armor!`,
-                inline: false
-              }
-            ],
-            footer: {
-              text: '🎯 Reach 10 total power to prepare for your first dungeon!',
-              icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
-            },
-            timestamp: new Date().toISOString()
-          };
-          
-          // Add claim button if completed but not claimed
-          if (questUserData.powerCount >= 10 && !powerCompleted?.claimed) {
-            questButtons.push({
-              type: 2,
-              style: 3,
-              label: '🎁 CLAIM REWARD',
-              custom_id: 'claim_quest_power10'
-            });
-          }
-        } else if (!goblinCompleted) {
-          // Show third quest (Goblin Slayer)
-          questEmbed = {
-            color: 0x8B4513, // Saddle brown for quest theme
-            title: '🎯 **Quest Chain - Step 3**',
-            description: 'You\'ve prepared for battle! Now face your first enemy!',
-            fields: [
-              {
-                name: '👹 Goblin Slayer Quest',
-                value: `**Progress:** ${questUserData.goblinDefeated ? '1/1' : '0/1'} goblin defeated\n**Reward:** 100 Panda Coins\n**Status:** ${questUserData.goblinDefeated ? '✅ Completed' : '⏳ In Progress'}\n**💡 Hint:** Use /dungeon goblin to fight the goblin enemy!`,
-                inline: false
-              }
-            ],
-            footer: {
-              text: '🎯 Defeat the goblin to complete your first dungeon challenge!',
-              icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
-            },
-            timestamp: new Date().toISOString()
-          };
-          
-          // Add claim button if completed but not claimed
-          if (questUserData.goblinDefeated && !goblinCompleted?.claimed) {
-            questButtons.push({
-              type: 2,
-              style: 3,
-              label: '🎁 CLAIM REWARD',
-              custom_id: 'claim_quest_goblinDefeat'
-            });
-          }
-        } else {
-          // All quests completed - show completion message
-          questEmbed = {
-            color: 0x00FF00, // Green for completion
-            title: '🏆 **Quest Chain Completed!**',
-            description: 'Congratulations! You\'ve completed all available quests!',
-            fields: [
-              {
-                name: '✅ Completed Quests',
-                value: `**🔨 Dig Apprentice** - Completed on ${new Date(digCompleted.completedAt).toLocaleDateString()}\n**⚔️ Dungeon Preparation** - Completed on ${new Date(powerCompleted.completedAt).toLocaleDateString()}\n**👹 Goblin Slayer** - Completed on ${new Date(goblinCompleted.completedAt).toLocaleDateString()}\n\n🎉 You're a true warrior!`,
-                inline: false
-              }
-            ],
-            footer: {
-              text: '🎯 More quests coming soon!',
-              icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
-            },
-            timestamp: new Date().toISOString()
-          };
-        }
-
-        const questResponse = {
-          embeds: [questEmbed]
-        };
-
-        if (questButtons.length > 0) {
-          questResponse.components = [{
-            type: 1, // Action row
-            components: questButtons
-          }];
-        }
-
-        await interaction.reply(questResponse);
-        break;
-
-      case 'giveall':
-        // Check if user has admin permissions
-        if (!member.permissions.has('Administrator')) {
-          await interaction.reply({ content: '❌ You need Administrator permissions to use this command!', ephemeral: true });
-          break;
-        }
-
-        console.log('🎁 Giveall command triggered by user:', user.username);
-        
-        // Give all items in the game
-        const allItems = {
-          // Regular inventory items
-          'shovel': 10,
-          'shovel_1': 5,
-          'shovel_2': 5,
-          'shovel_3': 5,
-          'spear': 10,
-          'sock': 50,
-          'skull': 20,
-          'reindeer skin': 15,
-          'wolf pelt': 10,
-          'bear claw': 8,
-          'golden deer antler': 5,
-          'orc\'s eyeball': 3,
-          'orc\'s hidden jewel': 2,
-          'goblin tooth': 25,
-          'knight\'s jewel': 10,
-          'broken blade': 15,
-          'small potion': 20,
-          'small mana potion': 20
-        };
-
-        // Give all gear
-        const allGear = {
-          weapon: {
-            'axe': 5,
-            'goblin arm': 3,
-            'knight\'s rusty blade': 2,
-            'bow & arrow': 2,
-            'shovel': 5,
-            'spear': 5,
-            'fortified steel waraxe': 1
-          },
-          helmet: {
-            'goblin mask': 3,
-            'knight\'s rusty helmet': 2,
-            'old worn helmet': 5,
-            'shiny reindeer antlers': 1,
-            'fortified steel helmet': 1
-          },
-          armor: {
-            'goblin clothing': 3,
-            'knight\'s rusty armor': 2,
-            'old worn armor': 5,
-            'fortified steel armor': 1
-          },
-          ride: {
-            'horse': 3,
-            'orc mount': 1
-          }
-        };
-
-        // Give all pets
-        const allPets = {
-          'goblin pet': 3,
-          'bunny pet': 2,
-          'knight companion': 2
-        };
-
-        // Add all items to inventory
-        Object.entries(allItems).forEach(([item, quantity]) => {
-          addItemToInventory(user.id, item, quantity);
-        });
-
-        // Add all gear to inventory
-        Object.entries(allGear).forEach(([category, items]) => {
-          Object.entries(items).forEach(([item, quantity]) => {
-            addGearToInventory(user.id, category, item, quantity);
-          });
-        });
-
-        // Add all pets to inventory
-        Object.entries(allPets).forEach(([pet, quantity]) => {
-          addPetToInventory(user.id, pet, quantity);
-        });
-
-        // Give lots of coins
-        addCoins(user.id, 1000, guild);
-
-        // Give max mana
-        addMana(user.id, 100);
-
-        // Mark all items as discovered in archive
-        const allItemNames = [
-          ...Object.keys(allItems),
-          ...Object.values(allGear).flatMap(category => Object.keys(category)),
-          ...Object.keys(allPets)
-        ];
-
-        allItemNames.forEach(itemName => {
-          markItemDiscovered(user.id, itemName);
-        });
-
-        // Complete quests for testing
-        const giveallUserQuestData = getUserQuestData(user.id);
-        giveallUserQuestData.digCount = 15; // Complete dig quest
-        giveallUserQuestData.completedQuests.dig10 = {
-          completedAt: Date.now(),
-          reward: 20,
-          claimed: true
-        };
-        giveallUserQuestData.completedQuests.power10 = {
-          completedAt: Date.now(),
-          reward: 50,
-          claimed: true
-        };
-        saveQuestData();
-
-        const giveallEmbed = {
-          color: 0x00FF00,
-          title: '🎁 **All Items Given!**',
-          description: 'You now have everything in the game for testing!',
-          fields: [
-            {
-              name: '💰 Currency',
-              value: '**1000 Panda Coins** + **100 Mana**',
-              inline: true
-            },
-            {
-              name: '📦 Items',
-              value: `**${Object.keys(allItems).length}** different items with quantities`,
-              inline: true
-            },
-            {
-              name: '⚔️ Gear',
-              value: `**${Object.values(allGear).flatMap(cat => Object.keys(cat)).length}** pieces of equipment`,
-              inline: true
-            },
-            {
-              name: '🐾 Pets',
-              value: `**${Object.keys(allPets).length}** different companions`,
-              inline: true
-            },
-            {
-              name: '🎯 Quests',
-              value: '**Dig Apprentice** and **Dungeon Preparation** completed!',
-              inline: true
-            },
-            {
-              name: '📚 Archive',
-              value: 'All items marked as discovered!',
-              inline: true
-            }
-          ],
-          footer: {
-            text: '🎮 Ready to test all features! Use /inventory to see your items.',
-            icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
-          },
-          timestamp: new Date().toISOString()
-        };
-
-        await interaction.reply({ embeds: [giveallEmbed] });
-        break;
-
       default:
         await interaction.reply({ content: 'Unknown command!', ephemeral: true });
     }
@@ -6722,7 +7326,7 @@ client.on('interactionCreate', async interaction => {
     try {
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({ content: errorMessage, ephemeral: true });
-      } else if (interaction.replied && !interaction.followUp) {
+      } else if (interaction.replied) {
         await interaction.followUp({ content: errorMessage, ephemeral: true });
       }
     } catch (responseError) {

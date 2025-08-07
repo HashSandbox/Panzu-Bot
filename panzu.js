@@ -4654,6 +4654,9 @@ client.on('interactionCreate', async interaction => {
             if (item.startsWith('shovel_')) {
               const uses = item.split('_')[1];
               displayName = `Shovel (${uses} use${uses > 1 ? 's' : ''})`;
+            } else if (item.startsWith('spear_')) {
+              const uses = item.split('_')[1];
+              displayName = `Spear (${uses} use${uses > 1 ? 's' : ''})`;
             } else if (item === 'sock') {
               displayName = 'Mysterious Sock';
             } else if (item === 'skull') {
@@ -6578,8 +6581,171 @@ client.on('interactionCreate', async interaction => {
           let questEmbed;
           let questButtons = [];
           
-          // Quest 1: Dig 10 times
-          if (!digCompleted) {
+          // Check for unclaimed quests FIRST (highest priority)
+          if (digCompleted && !digCompleted.claimed) {
+            // Dig quest completed but not claimed
+            questEmbed = {
+              color: 0x8B4513,
+              title: '🎯 **Story Quest - Dig Apprentice**',
+              description: 'You\'ve completed the dig quest! Claim your reward!',
+              fields: [
+                {
+                  name: '🔨 Dig Apprentice Quest',
+                  value: `**Progress:** 10/10 digs completed\n**Reward:** 25 Panda Coins\n**Status:** ✅ Completed\n**💡 Hint:** Click the button below to claim your reward!`,
+                  inline: false
+                }
+              ],
+              footer: {
+                text: '🎯 Claim your reward to complete the story!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+            
+            questButtons.push({
+              type: 2,
+              style: 3,
+              label: '🎁 CLAIM REWARD',
+              custom_id: 'claim_quest_dig10'
+            });
+          }
+          else if (powerCompleted && !powerCompleted.claimed) {
+            // Power quest completed but not claimed
+            questEmbed = {
+              color: 0x8B4513,
+              title: '🎯 **Story Quest - Dungeon Preparation**',
+              description: 'You\'ve completed the power quest! Claim your reward!',
+              fields: [
+                {
+                  name: '⚔️ Dungeon Preparation Quest',
+                  value: `**Progress:** 10/10 total power achieved\n**Reward:** 50 Panda Coins\n**Status:** ✅ Completed\n**💡 Hint:** Click the button below to claim your reward!`,
+                  inline: false
+                }
+              ],
+              footer: {
+                text: '🎯 Claim your reward to complete the story!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+            
+            questButtons.push({
+              type: 2,
+              style: 3,
+              label: '🎁 CLAIM REWARD',
+              custom_id: 'claim_quest_power10'
+            });
+          }
+          else if (goblinCompleted && !goblinCompleted.claimed) {
+            // Goblin quest completed but not claimed
+            questEmbed = {
+              color: 0x8B4513,
+              title: '🎯 **Story Quest - Goblin Slayer**',
+              description: 'You\'ve completed the goblin quest! Claim your reward!',
+              fields: [
+                {
+                  name: '👹 Goblin Slayer Quest',
+                  value: `**Progress:** 1/1 goblin defeated\n**Reward:** 75 Panda Coins\n**Status:** ✅ Completed\n**💡 Hint:** Click the button below to claim your reward!`,
+                  inline: false
+                }
+              ],
+              footer: {
+                text: '🎯 Claim your reward to complete the story!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+            
+            questButtons.push({
+              type: 2,
+              style: 3,
+              label: '🎁 CLAIM REWARD',
+              custom_id: 'claim_quest_goblinDefeat'
+            });
+          }
+          else if (huntCompleted && !huntCompleted.claimed) {
+            // Hunt quest completed but not claimed
+            questEmbed = {
+              color: 0x8B4513,
+              title: '🎯 **Story Quest - Master Hunter**',
+              description: 'You\'ve completed the hunt quest! Claim your reward!',
+              fields: [
+                {
+                  name: '🏹 Master Hunter Quest',
+                  value: `**Progress:** 20/20 hunts completed\n**Reward:** 100 Panda Coins\n**Status:** ✅ Completed\n**💡 Hint:** Click the button below to claim your reward!`,
+                  inline: false
+                }
+              ],
+              footer: {
+                text: '🎯 Claim your reward to complete the story!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+            
+            questButtons.push({
+              type: 2,
+              style: 3,
+              label: '🎁 CLAIM REWARD',
+              custom_id: 'claim_quest_hunt20'
+            });
+          }
+          else if (power25Completed && !power25Completed.claimed) {
+            // Power25 quest completed but not claimed
+            questEmbed = {
+              color: 0x8B4513,
+              title: '🎯 **Story Quest - Legendary Warrior**',
+              description: 'You\'ve completed the Legendary Warrior quest! Claim your reward!',
+              fields: [
+                {
+                  name: '⚔️ Legendary Warrior Quest',
+                  value: `**Progress:** 25/25 total power achieved\n**Reward:** 125 Panda Coins\n**Status:** ✅ Completed\n**💡 Hint:** Click the button below to claim your reward!`,
+                  inline: false
+                }
+              ],
+              footer: {
+                text: '🎯 Claim your reward to complete the story!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+            
+            questButtons.push({
+              type: 2,
+              style: 3,
+              label: '🎁 CLAIM REWARD',
+              custom_id: 'claim_quest_power25'
+            });
+          }
+          else if (orcCompleted && !orcCompleted.claimed) {
+            // Orc quest completed but not claimed
+            questEmbed = {
+              color: 0x8B4513,
+              title: '🎯 **Story Quest - Orc Slayer**',
+              description: 'You\'ve completed the Orc Slayer quest! Claim your reward!',
+              fields: [
+                {
+                  name: '👹 Orc Slayer Quest',
+                  value: `**Progress:** 1/1 orc defeated\n**Reward:** 150 Panda Coins\n**Status:** ✅ Completed\n**💡 Hint:** Click the button below to claim your reward!`,
+                  inline: false
+                }
+              ],
+              footer: {
+                text: '🎯 Claim your reward to complete the story!',
+                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+              },
+              timestamp: new Date().toISOString()
+            };
+            
+            questButtons.push({
+              type: 2,
+              style: 3,
+              label: '🎁 CLAIM REWARD',
+              custom_id: 'claim_quest_orcDefeat'
+            });
+          }
+          // Quest 1: Dig 10 times (if no unclaimed quests)
+          else if (!digCompleted) {
             const digProgress = questUserData.digCount || 0;
             const isCompleted = digProgress >= 10;
             
@@ -6767,90 +6933,6 @@ client.on('interactionCreate', async interaction => {
                 custom_id: 'claim_quest_orcDefeat'
               });
             }
-          }
-          // Check for unclaimed quests first
-          else if (huntCompleted && !huntCompleted.claimed) {
-            // Hunt quest completed but not claimed
-            questEmbed = {
-              color: 0x8B4513,
-              title: '🎯 **Story Quest - Master Hunter**',
-              description: 'You\'ve completed the hunt quest! Claim your reward!',
-              fields: [
-                {
-                  name: '🏹 Master Hunter Quest',
-                  value: `**Progress:** 20/20 hunts completed\n**Reward:** 100 Panda Coins\n**Status:** ✅ Completed\n**💡 Hint:** Click the button below to claim your reward!`,
-                  inline: false
-                }
-              ],
-              footer: {
-                text: '🎯 Claim your reward to complete the story!',
-                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
-              },
-              timestamp: new Date().toISOString()
-            };
-            
-            questButtons.push({
-              type: 2,
-              style: 3,
-              label: '🎁 CLAIM REWARD',
-              custom_id: 'claim_quest_hunt20'
-            });
-          }
-          // Check for unclaimed power25 quest
-          else if (power25Completed && !power25Completed.claimed) {
-            // Power25 quest completed but not claimed
-            questEmbed = {
-              color: 0x8B4513,
-              title: '🎯 **Story Quest - Legendary Warrior**',
-              description: 'You\'ve completed the Legendary Warrior quest! Claim your reward!',
-              fields: [
-                {
-                  name: '⚔️ Legendary Warrior Quest',
-                  value: `**Progress:** 39/25 total power achieved\n**Reward:** 125 Panda Coins\n**Status:** ✅ Completed\n**💡 Hint:** Click the button below to claim your reward!`,
-                  inline: false
-                }
-              ],
-              footer: {
-                text: '🎯 Claim your reward to complete the story!',
-                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
-              },
-              timestamp: new Date().toISOString()
-            };
-            
-            questButtons.push({
-              type: 2,
-              style: 3,
-              label: '🎁 CLAIM REWARD',
-              custom_id: 'claim_quest_power25'
-            });
-          }
-          // Check for unclaimed orc quest
-          else if (orcCompleted && !orcCompleted.claimed) {
-            // Orc quest completed but not claimed
-            questEmbed = {
-              color: 0x8B4513,
-              title: '🎯 **Story Quest - Orc Slayer**',
-              description: 'You\'ve completed the Orc Slayer quest! Claim your reward!',
-              fields: [
-                {
-                  name: '👹 Orc Slayer Quest',
-                  value: `**Progress:** 1/1 orc defeated\n**Reward:** 150 Panda Coins\n**Status:** ✅ Completed\n**💡 Hint:** Click the button below to claim your reward!`,
-                  inline: false
-                }
-              ],
-              footer: {
-                text: '🎯 Claim your reward to complete the story!',
-                icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
-              },
-              timestamp: new Date().toISOString()
-            };
-            
-            questButtons.push({
-              type: 2,
-              style: 3,
-              label: '🎁 CLAIM REWARD',
-              custom_id: 'claim_quest_orcDefeat'
-            });
           }
           // All quests completed
           else {

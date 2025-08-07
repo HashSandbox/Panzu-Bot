@@ -548,13 +548,28 @@ function processMultiplayerAttack(userId, battleId, attackType) {
   // Move to next player
   battle.currentPlayerIndex++;
   
-  // Set next turn deadline if there are more players
+  // Skip dead players in turn order
+  while (battle.currentPlayerIndex < battle.turnOrder.length) {
+    const nextPlayerId = battle.turnOrder[battle.currentPlayerIndex];
+    const nextPlayer = battle.players.find(p => p.userId === nextPlayerId);
+    if (nextPlayer && nextPlayer.health > 0) {
+      break; // Found alive player
+    }
+    battle.currentPlayerIndex++; // Skip dead player
+  }
+  
+  // Set next turn deadline if there are more alive players
   if (battle.currentPlayerIndex < battle.turnOrder.length) {
     battle.turnDeadline = Date.now() + (10 * 1000); // 10 seconds for next player
   }
   
-  // Check if all players have attacked
-  if (battle.currentPlayerIndex >= battle.turnOrder.length) {
+  // Check if all alive players have attacked
+  const alivePlayerIds = battle.players.filter(p => p.health > 0).map(p => p.userId);
+  const hasAttackedAllAlive = battle.turnOrder.slice(0, battle.currentPlayerIndex).every(playerId => 
+    alivePlayerIds.includes(playerId)
+  );
+  
+  if (battle.currentPlayerIndex >= battle.turnOrder.length || hasAttackedAllAlive) {
     // Boss turn
     battle.currentTurn = 'boss';
     battle.currentPlayerIndex = 0;
@@ -583,9 +598,20 @@ function processMultiplayerAttack(userId, battleId, attackType) {
       }
     });
     
-    // Reset player turns
+    // Reset player turns - start with first alive player
     battle.currentTurn = 'players';
     battle.currentPlayerIndex = 0;
+    
+    // Find first alive player
+    while (battle.currentPlayerIndex < battle.turnOrder.length) {
+      const playerId = battle.turnOrder[battle.currentPlayerIndex];
+      const player = battle.players.find(p => p.userId === playerId);
+      if (player && player.health > 0) {
+        break; // Found first alive player
+      }
+      battle.currentPlayerIndex++;
+    }
+    
     battle.turnDeadline = Date.now() + (10 * 1000); // 10 seconds for first player
     battle.battleLog.push(`\n**Round ${battle.round}:** Players' turn!`);
   }
@@ -601,9 +627,9 @@ function processMultiplayerAttack(userId, battleId, attackType) {
     });
     battle.battleLog.push(`\n🎉 **VICTORY!** Boss defeated! Each survivor gets **${rewardPerPlayer}** Panda Coins!`);
   } else if (alivePlayers.length === 0) {
-    // Defeat
+    // Defeat - only when ALL players are dead
     battle.status = 'completed';
-    battle.battleLog.push(`\n💀 **DEFEAT!** All players have fallen!`);
+    battle.battleLog.push(`\n💀 **DEFEAT!** All players have fallen! The Crazy Giant has won!`);
   }
   
   saveMultiplayerBattles();
@@ -5036,7 +5062,17 @@ client.on('interactionCreate', async interaction => {
                   name: '👥 Players',
                   value: battle.players.map(player => {
                     const status = player.health > 0 ? '🛡️' : '💀';
-                    return `${status} **${player.userId}**: ${player.health}/${player.maxHealth} HP`;
+                    // Try to get username from client cache, fallback to ID
+                    let username = player.userId;
+                    try {
+                      const user = client.users.cache.get(player.userId);
+                      if (user) {
+                        username = user.username;
+                      }
+                    } catch (error) {
+                      console.log(`Could not get username for ${player.userId} in attack embed`);
+                    }
+                    return `${status} **${username}**: ${player.health}/${player.maxHealth} HP`;
                   }).join('\n'),
                   inline: false
                 }
@@ -5048,11 +5084,14 @@ client.on('interactionCreate', async interaction => {
               timestamp: new Date().toISOString()
             };
 
-            // Add attack buttons if battle is still active
+            // Add attack buttons if battle is still active and it's the player's turn
             let attackRow = null;
             if (battle.status === 'active' && battle.currentTurn === 'players') {
               const currentPlayerId = battle.turnOrder[battle.currentPlayerIndex];
-              if (currentPlayerId === user.id) {
+              const currentPlayer = battle.players.find(p => p.userId === currentPlayerId);
+              
+              // Only show buttons if it's the player's turn AND they're alive
+              if (currentPlayerId === user.id && currentPlayer && currentPlayer.health > 0) {
                 attackRow = {
                   type: 1,
                   components: [

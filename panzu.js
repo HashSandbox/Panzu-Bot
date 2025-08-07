@@ -336,7 +336,8 @@ function createMultiplayerBattle(userId, bossType) {
     turnOrder: [userId],
     currentPlayerIndex: 0,
     round: 0,
-    battleLog: []
+    battleLog: [],
+    channelId: null // Will be set when battle is created
   };
   
   saveMultiplayerBattles();
@@ -611,8 +612,8 @@ function createBattleEmbed(battleId) {
 }
 
 // Update multiplayer battle embeds with live countdown
-function updateMultiplayerBattleEmbeds() {
-  Object.keys(multiplayerBattles).forEach(battleId => {
+async function updateMultiplayerBattleEmbeds() {
+  for (const battleId of Object.keys(multiplayerBattles)) {
     const battle = multiplayerBattles[battleId];
     
     if (battle && battle.status === 'waiting') {
@@ -627,12 +628,58 @@ function updateMultiplayerBattleEmbeds() {
           // If battle started, we need to create a battle embed for players
           if (refundResult.battleStarted) {
             console.log(`⏰ Battle ${battleId} auto-started with ${battle.players.length} players!`);
-            // The battle is now active and ready for player turns
+            
+            // Create battle embed
+            const battleEmbed = createBattleEmbed(battleId);
+            if (battleEmbed) {
+              // Add attack buttons for the first player's turn
+              let attackRow = null;
+              if (battle.status === 'active' && battle.currentTurn === 'players') {
+                const currentPlayerId = battle.turnOrder[battle.currentPlayerIndex];
+                const currentPlayer = battle.players.find(p => p.userId === currentPlayerId);
+                if (currentPlayer && currentPlayer.health > 0) {
+                  attackRow = {
+                    type: 1,
+                    components: [
+                      {
+                        type: 2,
+                        style: 1, // Primary style (blue)
+                        label: '⚔️ Basic Attack',
+                        custom_id: `multi_attack_${battleId}_basic`,
+                        emoji: { name: '⚔️' },
+                      },
+                      {
+                        type: 2,
+                        style: 2, // Secondary style (gray)
+                        label: '🛡️ Defend',
+                        custom_id: `multi_attack_${battleId}_defend`,
+                        emoji: { name: '🛡️' },
+                      },
+                    ],
+                  };
+                }
+              }
+              
+              const components = attackRow ? [attackRow] : [];
+              
+              // Send battle embed to the channel
+              if (battle.channelId) {
+                try {
+                  const channel = client.channels.cache.get(battle.channelId);
+                  if (channel) {
+                    await channel.send({ embeds: [battleEmbed], components: components });
+                    console.log(`🎮 Battle ${battleId} embed sent to channel ${battle.channelId}!`);
+                  }
+                } catch (error) {
+                  console.error(`❌ Failed to send battle embed for ${battleId}:`, error);
+                }
+              }
+            }
           }
         }
       }
     }
-  });
+  }
 }
 
 // Save data to file
@@ -4671,14 +4718,17 @@ client.on('interactionCreate', async interaction => {
           if (customId === 'multi_fight_crazy_giant') {
             console.log('🎮 Multiplayer fight button clicked by:', user.username);
             
-            const result = createMultiplayerBattle(user.id, 'crazy_giant');
-            
-            if (!result.success) {
-              await interaction.reply({ content: `❌ ${result.error}`, ephemeral: true });
-              break;
-            }
+                      const result = createMultiplayerBattle(user.id, 'crazy_giant');
+          
+          if (!result.success) {
+            await interaction.reply({ content: `❌ ${result.error}`, ephemeral: true });
+            break;
+          }
 
-            const boss = multiplayerBosses['crazy_giant'];
+          // Store the channel ID for this battle
+          multiplayerBattles[result.battleId].channelId = interaction.channelId;
+
+          const boss = multiplayerBosses['crazy_giant'];
             const createEmbed = {
               color: 0x8B4513,
               title: '🎮 **Multiplayer Battle Created!**',
@@ -4756,30 +4806,69 @@ client.on('interactionCreate', async interaction => {
             const timeRemaining = getBattleTimeRemaining(battleId);
             const formattedTime = formatBattleCountdown(timeRemaining);
             
-            // Check if battle should be refunded
+            // Check if battle should be refunded or started
             const refundResult = checkAndRefundBattle(battleId);
             if (refundResult) {
-              const refundEmbed = {
-                color: 0xFF0000,
-                title: '⏰ **Battle Expired**',
-                description: refundResult.message,
-                fields: [
-                  {
-                    name: '💰 Refund',
-                    value: '100 Panda Coins returned to host',
-                    inline: false
+              if (refundResult.battleStarted) {
+                // Battle started! Show battle embed
+                const battleEmbed = createBattleEmbed(battleId);
+                if (battleEmbed) {
+                  // Add attack buttons if it's the player's turn
+                  let attackRow = null;
+                  if (battle.status === 'active' && battle.currentTurn === 'players') {
+                    const currentPlayerId = battle.turnOrder[battle.currentPlayerIndex];
+                    if (currentPlayerId === user.id) {
+                      attackRow = {
+                        type: 1,
+                        components: [
+                          {
+                            type: 2,
+                            style: 1, // Primary style (blue)
+                            label: '⚔️ Basic Attack',
+                            custom_id: `multi_attack_${battleId}_basic`,
+                            emoji: { name: '⚔️' },
+                          },
+                          {
+                            type: 2,
+                            style: 2, // Secondary style (gray)
+                            label: '🛡️ Defend',
+                            custom_id: `multi_attack_${battleId}_defend`,
+                            emoji: { name: '🛡️' },
+                          },
+                        ],
+                      };
+                    }
                   }
-                ],
-                footer: {
-                  text: 'Not enough players joined in time',
-                  icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
-                },
-                timestamp: new Date().toISOString()
-              };
-              
-              await interaction.reply({ embeds: [refundEmbed] });
-              console.log('✅ Battle refunded successfully');
-              break;
+                  
+                  const components = attackRow ? [attackRow] : [];
+                  await interaction.reply({ embeds: [battleEmbed], components: components });
+                  console.log('✅ Battle started and embed shown successfully');
+                  break;
+                }
+              } else {
+                // Battle expired/refunded
+                const refundEmbed = {
+                  color: 0xFF0000,
+                  title: '⏰ **Battle Expired**',
+                  description: refundResult.message,
+                  fields: [
+                    {
+                      name: '💰 Refund',
+                      value: '100 Panda Coins returned to host',
+                      inline: false
+                    }
+                  ],
+                  footer: {
+                    text: 'Not enough players joined in time',
+                    icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+                  },
+                  timestamp: new Date().toISOString()
+                };
+                
+                await interaction.reply({ embeds: [refundEmbed] });
+                console.log('✅ Battle refunded successfully');
+                break;
+              }
             }
             
             const joinEmbed = {

@@ -355,6 +355,14 @@ function getBattleTimeRemaining(battleId) {
   return Math.ceil(remaining / 1000); // Return seconds
 }
 
+// Format countdown time for display
+function formatBattleCountdown(seconds) {
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}m ${remainingSeconds}s`;
+}
+
 // Join multiplayer battle
 function joinMultiplayerBattle(userId, battleId) {
   const battle = multiplayerBattles[battleId];
@@ -560,6 +568,25 @@ function getMultiplayerBattleStatus(battleId) {
     return { success: false, error: 'Battle not found' };
   }
   return { success: true, battle };
+}
+
+// Update multiplayer battle embeds with live countdown
+function updateMultiplayerBattleEmbeds() {
+  Object.keys(multiplayerBattles).forEach(battleId => {
+    const battle = multiplayerBattles[battleId];
+    
+    if (battle && battle.status === 'waiting') {
+      const timeRemaining = getBattleTimeRemaining(battleId);
+      
+      // Check if battle should start or be refunded
+      if (timeRemaining <= 0) {
+        const refundResult = checkAndRefundBattle(battleId);
+        if (refundResult) {
+          console.log(`⏰ Auto-updated battle ${battleId}: ${refundResult.message}`);
+        }
+      }
+    }
+  });
 }
 
 // Save data to file
@@ -4673,6 +4700,7 @@ client.on('interactionCreate', async interaction => {
             const battle = result.battle;
             const boss = multiplayerBosses[battle.boss];
             const timeRemaining = getBattleTimeRemaining(battleId);
+            const formattedTime = formatBattleCountdown(timeRemaining);
             
             // Check if battle should be refunded
             const refundResult = checkAndRefundBattle(battleId);
@@ -4717,7 +4745,7 @@ client.on('interactionCreate', async interaction => {
                 },
                 {
                   name: '⏰ Time Remaining',
-                  value: `${timeRemaining} seconds`,
+                  value: `${formattedTime}`,
                   inline: true
                 },
                 {
@@ -4727,7 +4755,7 @@ client.on('interactionCreate', async interaction => {
                 }
               ],
                               footer: {
-                  text: battle.players.length >= 4 ? 'Battle will start immediately!' : `Waiting for more players... (${timeRemaining}s left, min 2 players)`,
+                  text: battle.players.length >= 4 ? 'Battle will start immediately!' : `Waiting for more players... (${formattedTime} left, min 2 players)`,
                   icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
                 },
               timestamp: new Date().toISOString()
@@ -8030,14 +8058,9 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
-// Periodic check for expired multiplayer battles
+// Periodic check for expired multiplayer battles and update embeds
 setInterval(() => {
-  Object.keys(multiplayerBattles).forEach(battleId => {
-    const refundResult = checkAndRefundBattle(battleId);
-    if (refundResult) {
-      console.log(`⏰ Auto-refunded expired battle ${battleId}: ${refundResult.message}`);
-    }
-  });
-}, 5000); // Check every 5 seconds
+  updateMultiplayerBattleEmbeds();
+}, 10000); // Check every 10 seconds (like mana bar)
 
 client.login(process.env.DISCORD_BOT_TOKEN);

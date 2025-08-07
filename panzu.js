@@ -428,8 +428,10 @@ function checkAndRefundBattle(battleId) {
     return { success: true, message: 'Battle cancelled - not enough players joined. Host refunded 100 coins.' };
   } else if (Date.now() > battle.joinDeadline && battle.players.length >= 2) {
     // Start battle if enough players joined but time expired
-    startMultiplayerBattle(battleId);
-    return { success: true, message: 'Battle starting with available players!' };
+    const result = startMultiplayerBattle(battleId);
+    if (result.success) {
+      return { success: true, message: 'Battle starting with available players!', battleStarted: true };
+    }
   }
   
   return null;
@@ -570,6 +572,44 @@ function getMultiplayerBattleStatus(battleId) {
   return { success: true, battle };
 }
 
+// Create battle embed for active battles
+function createBattleEmbed(battleId) {
+  const battle = multiplayerBattles[battleId];
+  if (!battle || battle.status !== 'active') {
+    return null;
+  }
+  
+  const boss = multiplayerBosses[battle.boss];
+  
+  const battleEmbed = {
+    color: 0x8B4513,
+    title: `🎮 **Multiplayer Battle - ${boss.name}**`,
+    description: battle.battleLog.slice(-5).join('\n'), // Show last 5 log entries
+    fields: [
+      {
+        name: '👹 Boss Health',
+        value: `${battle.bossHealth}/${battle.maxBossHealth}`,
+        inline: false
+      },
+      {
+        name: '👥 Players',
+        value: battle.players.map(player => {
+          const status = player.health > 0 ? '🛡️' : '💀';
+          return `${status} **${player.userId}**: ${player.health}/${player.maxHealth} HP`;
+        }).join('\n'),
+        inline: false
+      }
+    ],
+    footer: {
+      text: `Round ${battle.round} - ${battle.currentTurn === 'boss' ? 'Boss turn' : 'Player turn'}`,
+      icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+    },
+    timestamp: new Date().toISOString()
+  };
+  
+  return battleEmbed;
+}
+
 // Update multiplayer battle embeds with live countdown
 function updateMultiplayerBattleEmbeds() {
   Object.keys(multiplayerBattles).forEach(battleId => {
@@ -583,6 +623,12 @@ function updateMultiplayerBattleEmbeds() {
         const refundResult = checkAndRefundBattle(battleId);
         if (refundResult) {
           console.log(`⏰ Auto-updated battle ${battleId}: ${refundResult.message}`);
+          
+          // If battle started, we need to create a battle embed for players
+          if (refundResult.battleStarted) {
+            console.log(`⏰ Battle ${battleId} auto-started with ${battle.players.length} players!`);
+            // The battle is now active and ready for player turns
+          }
         }
       }
     }

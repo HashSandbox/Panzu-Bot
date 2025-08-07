@@ -2896,6 +2896,10 @@ const commands = [
   {
     name: 'dungeonmulti',
     description: 'Multiplayer dungeon battles with friends'
+  },
+  {
+    name: 'giveall',
+    description: 'Give all items and coins for testing (ADMIN ONLY)'
   }
 ];
 
@@ -8037,6 +8041,102 @@ client.on('interactionCreate', async interaction => {
             });
           }
         }
+        break;
+
+      case 'giveall':
+        console.log('🎁 Giveall command triggered by user:', user.username);
+        
+        // Check if user is admin (you can modify this check)
+        if (user.id !== '460411620473044993') { // Replace with your user ID
+          await interaction.reply({ content: '❌ This command is for testing only!', ephemeral: true });
+          break;
+        }
+        
+        // Give all gear types
+        const allGear = {
+          weapon: ['axe', 'sword', 'bow', 'spear', 'knight\'s rusty blade', 'fortified steel waraxe'],
+          helmet: ['goblin mask', 'knight\'s rusty helmet', 'old worn helmet', 'shiny reindeer antlers', 'fortified steel helmet'],
+          armor: ['goblin clothing', 'knight\'s rusty armor', 'old worn armor', 'fortified steel armor'],
+          ride: ['horse']
+        };
+        
+        // Give all items
+        const allItems = [
+          'small potion', 'medium potion', 'large potion', 'mysterious sock', 'skull',
+          'shovel_3', 'shovel_5', 'shovel_10', 'spear_3', 'spear_5', 'spear_10'
+        ];
+        
+        // Give all pets
+        const allPets = ['goblin pet', 'knight pet', 'dragon pet'];
+        
+        // Add all gear
+        Object.entries(allGear).forEach(([category, items]) => {
+          items.forEach(item => {
+            addGearToInventory(user.id, category, item, 5);
+          });
+        });
+        
+        // Add all items
+        allItems.forEach(item => {
+          addItemToInventory(user.id, item, 10);
+        });
+        
+        // Add all pets
+        allPets.forEach(pet => {
+          addPetToInventory(user.id, pet, 3);
+        });
+        
+        // Give lots of coins
+        addCoins(user.id, 10000);
+        
+        // Give lots of mana
+        addMana(user.id, 1000);
+        
+        const giveallEmbed = {
+          color: 0x00FF00,
+          title: '🎁 **Testing Items Given!**',
+          description: `**${user.username}** received all items for testing!`,
+          fields: [
+            {
+              name: '💰 Coins Added',
+              value: '10,000 Panda Coins',
+              inline: true
+            },
+            {
+              name: '🔮 Mana Added',
+              value: '1,000 Mana',
+              inline: true
+            },
+            {
+              name: '🎒 Items Added',
+              value: `${allItems.length} different items (10x each)`,
+              inline: true
+            },
+            {
+              name: '⚔️ Gear Added',
+              value: 'All weapon types (5x each)',
+              inline: true
+            },
+            {
+              name: '🛡️ Armor Added',
+              value: 'All helmet & armor types (5x each)',
+              inline: true
+            },
+            {
+              name: '🐾 Pets Added',
+              value: 'All pet types (3x each)',
+              inline: true
+            }
+          ],
+          footer: {
+            text: 'Testing mode activated! Use /inventory to see all items.',
+            icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+          },
+          timestamp: new Date().toISOString()
+        };
+        
+        await interaction.reply({ embeds: [giveallEmbed] });
+        console.log('✅ Giveall command completed successfully');
         break;
 
       default:

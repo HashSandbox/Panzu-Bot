@@ -322,10 +322,10 @@ function createMultiplayerBattle(userId, bossType) {
     players: [
       {
         userId: userId,
-        health: 100,
-        maxHealth: 100,
-        attack: 10,
-        defense: 5,
+        health: getUserStats(userId).health,
+        maxHealth: getUserStats(userId).health,
+        attack: getUserStats(userId).attack,
+        defense: getUserStats(userId).defense,
         status: 'ready'
       }
     ],
@@ -337,7 +337,8 @@ function createMultiplayerBattle(userId, bossType) {
     currentPlayerIndex: 0,
     round: 0,
     battleLog: [],
-    channelId: null // Will be set when battle is created
+    channelId: null, // Will be set when battle is created
+    turnDeadline: null // When current player's turn expires
   };
   
   saveMultiplayerBattles();
@@ -391,13 +392,16 @@ function joinMultiplayerBattle(userId, battleId) {
     return { success: false, error: 'Battle is full' };
   }
   
-  // Add player
+  // Get player stats
+  const playerStats = getUserStats(userId);
+  
+  // Add player with actual stats
   battle.players.push({
     userId: userId,
-    health: 100,
-    maxHealth: 100,
-    attack: 10,
-    defense: 5,
+    health: playerStats.health,
+    maxHealth: playerStats.health,
+    attack: playerStats.attack,
+    defense: playerStats.defense,
     status: 'ready'
   });
   
@@ -468,6 +472,7 @@ function startMultiplayerBattle(battleId) {
   // Set first player turn
   battle.currentTurn = 'players';
   battle.currentPlayerIndex = 0;
+  battle.turnDeadline = Date.now() + (10 * 1000); // 10 seconds
   battle.battleLog.push(`\n**Round ${battle.round}:** Players' turn!`);
   
   saveMultiplayerBattles();
@@ -520,6 +525,11 @@ function processMultiplayerAttack(userId, battleId, attackType) {
   // Move to next player
   battle.currentPlayerIndex++;
   
+  // Set next turn deadline if there are more players
+  if (battle.currentPlayerIndex < battle.turnOrder.length) {
+    battle.turnDeadline = Date.now() + (10 * 1000); // 10 seconds for next player
+  }
+  
   // Check if all players have attacked
   if (battle.currentPlayerIndex >= battle.turnOrder.length) {
     // Boss turn
@@ -540,6 +550,8 @@ function processMultiplayerAttack(userId, battleId, attackType) {
     
     // Reset player turns
     battle.currentTurn = 'players';
+    battle.currentPlayerIndex = 0;
+    battle.turnDeadline = Date.now() + (10 * 1000); // 10 seconds for first player
     battle.battleLog.push(`\n**Round ${battle.round}:** Players' turn!`);
   }
   
@@ -609,6 +621,26 @@ function createBattleEmbed(battleId) {
   };
   
   return battleEmbed;
+}
+
+// Handle expired turns in multiplayer battles
+function handleExpiredTurns() {
+  Object.keys(multiplayerBattles).forEach(battleId => {
+    const battle = multiplayerBattles[battleId];
+    
+    if (battle && battle.status === 'active' && battle.currentTurn === 'players') {
+      if (battle.turnDeadline && Date.now() > battle.turnDeadline) {
+        // Turn expired, auto-attack
+        const currentPlayerId = battle.turnOrder[battle.currentPlayerIndex];
+        const currentPlayer = battle.players.find(p => p.userId === currentPlayerId);
+        
+        if (currentPlayer && currentPlayer.health > 0) {
+          console.log(`⏰ Auto-attack for ${currentPlayerId} in battle ${battleId}`);
+          processMultiplayerAttack(currentPlayerId, battleId, 'basic');
+        }
+      }
+    }
+  });
 }
 
 // Update multiplayer battle embeds with live countdown
@@ -8357,7 +8389,8 @@ client.on('interactionCreate', async interaction => {
 
 // Periodic check for expired multiplayer battles and update embeds
 setInterval(() => {
+  handleExpiredTurns();
   updateMultiplayerBattleEmbeds();
-}, 10000); // Check every 10 seconds (like mana bar)
+}, 5000); // Check every 5 seconds for turns, 10 seconds for embeds
 
 client.login(process.env.DISCORD_BOT_TOKEN);

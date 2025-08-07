@@ -344,6 +344,17 @@ function createMultiplayerBattle(userId, bossType) {
   return { success: true, battleId, boss };
 }
 
+// Calculate remaining time for battle
+function getBattleTimeRemaining(battleId) {
+  const battle = multiplayerBattles[battleId];
+  if (!battle || battle.status !== 'waiting') {
+    return 0;
+  }
+  
+  const remaining = Math.max(0, battle.joinDeadline - Date.now());
+  return Math.ceil(remaining / 1000); // Return seconds
+}
+
 // Join multiplayer battle
 function joinMultiplayerBattle(userId, battleId) {
   const battle = multiplayerBattles[battleId];
@@ -398,7 +409,7 @@ function checkAndRefundBattle(battleId) {
   const battle = multiplayerBattles[battleId];
   
   if (!battle || battle.status !== 'waiting') {
-    return;
+    return null;
   }
   
   if (Date.now() > battle.joinDeadline && battle.players.length < 2) {
@@ -442,6 +453,7 @@ function startMultiplayerBattle(battleId) {
   // Set first player turn
   battle.currentTurn = 'players';
   battle.currentPlayerIndex = 0;
+  battle.battleLog.push(`\n**Round ${battle.round}:** Players' turn!`);
   
   saveMultiplayerBattles();
   
@@ -4619,7 +4631,7 @@ client.on('interactionCreate', async interaction => {
                 }
               ],
               footer: {
-                text: 'Battle will auto-start when 4 players join or 30 seconds expire!',
+                text: 'Battle will auto-start when 4 players join or 30 seconds expire! (30s left)',
                 icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
               },
               timestamp: new Date().toISOString()
@@ -4656,6 +4668,33 @@ client.on('interactionCreate', async interaction => {
 
             const battle = result.battle;
             const boss = multiplayerBosses[battle.boss];
+            const timeRemaining = getBattleTimeRemaining(battleId);
+            
+            // Check if battle should be refunded
+            const refundResult = checkAndRefundBattle(battleId);
+            if (refundResult) {
+              const refundEmbed = {
+                color: 0xFF0000,
+                title: '⏰ **Battle Expired**',
+                description: refundResult.message,
+                fields: [
+                  {
+                    name: '💰 Refund',
+                    value: '100 Panda Coins returned to host',
+                    inline: false
+                  }
+                ],
+                footer: {
+                  text: 'Not enough players joined in time',
+                  icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+                },
+                timestamp: new Date().toISOString()
+              };
+              
+              await interaction.reply({ embeds: [refundEmbed] });
+              console.log('✅ Battle refunded successfully');
+              break;
+            }
             
             const joinEmbed = {
               color: 0x00FF00,
@@ -4673,8 +4712,8 @@ client.on('interactionCreate', async interaction => {
                   inline: true
                 },
                 {
-                  name: '⏰ Status',
-                  value: battle.status === 'waiting' ? 'Waiting for players...' : 'Battle starting!',
+                  name: '⏰ Time Remaining',
+                  value: `${timeRemaining} seconds`,
                   inline: true
                 },
                 {
@@ -4684,27 +4723,31 @@ client.on('interactionCreate', async interaction => {
                 }
               ],
               footer: {
-                text: battle.players.length >= 4 ? 'Battle will start immediately!' : 'Waiting for more players...',
+                text: battle.players.length >= 4 ? 'Battle will start immediately!' : `Waiting for more players... (${timeRemaining}s left)`,
                 icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
               },
               timestamp: new Date().toISOString()
             };
 
-            // Add join button for other players
-            const joinRow = {
-              type: 1,
-              components: [
-                {
-                  type: 2,
-                  style: 3, // Success style (green)
-                  label: '⚔️ JOIN BATTLE',
-                  custom_id: `multi_join_${battleId}`,
-                  emoji: { name: '⚔️' },
-                },
-              ],
-            };
+            // Add join button for other players if battle is still waiting
+            let joinRow = null;
+            if (battle.status === 'waiting' && battle.players.length < 4) {
+              joinRow = {
+                type: 1,
+                components: [
+                  {
+                    type: 2,
+                    style: 3, // Success style (green)
+                    label: '⚔️ JOIN BATTLE',
+                    custom_id: `multi_join_${battleId}`,
+                    emoji: { name: '⚔️' },
+                  },
+                ],
+              };
+            }
 
-            await interaction.reply({ embeds: [joinEmbed], components: [joinRow] });
+            const components = joinRow ? [joinRow] : [];
+            await interaction.reply({ embeds: [joinEmbed], components: components });
             console.log('✅ Player joined multiplayer battle successfully');
             break;
           }
@@ -7982,5 +8025,15 @@ client.on('interactionCreate', async interaction => {
     }
   }
 });
+
+// Periodic check for expired multiplayer battles
+setInterval(() => {
+  Object.keys(multiplayerBattles).forEach(battleId => {
+    const refundResult = checkAndRefundBattle(battleId);
+    if (refundResult) {
+      console.log(`⏰ Auto-refunded expired battle ${battleId}: ${refundResult.message}`);
+    }
+  });
+}, 5000); // Check every 5 seconds
 
 client.login(process.env.DISCORD_BOT_TOKEN);

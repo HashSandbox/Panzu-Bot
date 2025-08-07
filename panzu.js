@@ -2946,6 +2946,10 @@ const commands = [
   {
     name: 'giveall',
     description: 'Give all items and coins for testing (ADMIN ONLY)'
+  },
+  {
+    name: 'battle',
+    description: 'Check battle status or attack in multiplayer battles'
   }
 ];
 
@@ -8183,6 +8187,64 @@ client.on('interactionCreate', async interaction => {
         
         await interaction.reply({ embeds: [giveallEmbed] });
         console.log('✅ Giveall command completed successfully');
+        break;
+
+      case 'battle':
+        console.log('⚔️ Battle command triggered by user:', user.username);
+        
+        // Check if user is in any active battles
+        let userBattles = [];
+        Object.keys(multiplayerBattles).forEach(battleId => {
+          const battle = multiplayerBattles[battleId];
+          if (battle && battle.players.some(p => p.userId === user.id)) {
+            userBattles.push({ battleId, battle });
+          }
+        });
+        
+        if (userBattles.length === 0) {
+          await interaction.reply({ content: '❌ You are not in any active battles!', ephemeral: true });
+          break;
+        }
+        
+        // Show the most recent battle
+        const latestBattle = userBattles[userBattles.length - 1];
+        const battleEmbed = createBattleEmbed(latestBattle.battleId);
+        
+        if (!battleEmbed) {
+          await interaction.reply({ content: '❌ Battle not found or not active!', ephemeral: true });
+          break;
+        }
+        
+        // Add attack buttons if it's the player's turn
+        let attackRow = null;
+        if (latestBattle.battle.status === 'active' && latestBattle.battle.currentTurn === 'players') {
+          const currentPlayerId = latestBattle.battle.turnOrder[latestBattle.battle.currentPlayerIndex];
+          if (currentPlayerId === user.id) {
+            attackRow = {
+              type: 1,
+              components: [
+                {
+                  type: 2,
+                  style: 1, // Primary style (blue)
+                  label: '⚔️ Basic Attack',
+                  custom_id: `multi_attack_${latestBattle.battleId}_basic`,
+                  emoji: { name: '⚔️' },
+                },
+                {
+                  type: 2,
+                  style: 2, // Secondary style (gray)
+                  label: '🛡️ Defend',
+                  custom_id: `multi_attack_${latestBattle.battleId}_defend`,
+                  emoji: { name: '🛡️' },
+                },
+              ],
+            };
+          }
+        }
+        
+        const components = attackRow ? [attackRow] : [];
+        await interaction.reply({ embeds: [battleEmbed], components: components });
+        console.log('✅ Battle command completed successfully');
         break;
 
       default:

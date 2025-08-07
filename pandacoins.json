@@ -1,40 +1,58 @@
 {
   "460411620473044993": {
-    "coins": 15,
+    "coins": 9815,
     "lastDaily": 1754503437516,
     "inventory": {
-      "small potion": 2,
-      "spear_3": 2,
-      "shovel_3": 5
+      "small potion": 12,
+      "spear_3": 12,
+      "shovel_3": 15,
+      "medium potion": 10,
+      "large potion": 10,
+      "mysterious sock": 10,
+      "skull": 10,
+      "shovel_5": 10,
+      "shovel_10": 10,
+      "spear_5": 10,
+      "spear_10": 10
     },
     "gear": {
       "weapon": {
-        "axe": 2,
+        "axe": 7,
         "goblin arm": 8,
         "bow & arrow": 2,
-        "knight's rusty blade": 9,
-        "fortified steel waraxe": 2
+        "knight's rusty blade": 14,
+        "fortified steel waraxe": 7,
+        "sword": 5,
+        "bow": 5,
+        "spear": 5
       },
       "helmet": {
-        "goblin mask": 16,
-        "knight's rusty helmet": 5,
-        "old worn helmet": 4,
-        "shiny reindeer antlers": 1
+        "goblin mask": 21,
+        "knight's rusty helmet": 10,
+        "old worn helmet": 9,
+        "shiny reindeer antlers": 6,
+        "fortified steel helmet": 5
       },
       "armor": {
-        "goblin clothing": 1,
-        "knight's rusty armor": 26
+        "goblin clothing": 6,
+        "knight's rusty armor": 31,
+        "old worn armor": 5,
+        "fortified steel armor": 5
       },
-      "ride": {}
+      "ride": {
+        "horse": 5
+      }
     },
     "equipped": {
-      "weapon": "knight's rusty blade",
-      "helmet": "knight's rusty helmet",
+      "weapon": "fortified steel waraxe",
+      "helmet": "fortified steel helmet",
       "ride": null,
-      "armor": "knight's rusty armor"
+      "armor": "fortified steel armor"
     },
     "pets": {
-      "goblin pet": 1
+      "goblin pet": 4,
+      "knight pet": 3,
+      "dragon pet": 3
     },
     "equippedPet": "goblin pet",
     "archive": {
@@ -125,9 +143,93 @@
       "skull": {
         "discovered": true,
         "discoveredAt": 1754503253660
+      },
+      "sword": {
+        "discovered": true,
+        "discoveredAt": 1754592995262
+      },
+      "bow": {
+        "discovered": true,
+        "discoveredAt": 1754592995264
+      },
+      "spear": {
+        "discovered": true,
+        "discoveredAt": 1754592995266
+      },
+      "knight's rusty blade": {
+        "discovered": true,
+        "discoveredAt": 1754592995267
+      },
+      "knight's rusty helmet": {
+        "discovered": true,
+        "discoveredAt": 1754592995270
+      },
+      "shiny reindeer antlers": {
+        "discovered": true,
+        "discoveredAt": 1754592995272
+      },
+      "fortified steel helmet": {
+        "discovered": true,
+        "discoveredAt": 1754592995273
+      },
+      "goblin clothing": {
+        "discovered": true,
+        "discoveredAt": 1754592995274
+      },
+      "old worn armor": {
+        "discovered": true,
+        "discoveredAt": 1754592995275
+      },
+      "fortified steel armor": {
+        "discovered": true,
+        "discoveredAt": 1754592995277
+      },
+      "horse": {
+        "discovered": true,
+        "discoveredAt": 1754592995278
+      },
+      "medium potion": {
+        "discovered": true,
+        "discoveredAt": 1754592995279
+      },
+      "large potion": {
+        "discovered": true,
+        "discoveredAt": 1754592995280
+      },
+      "mysterious sock": {
+        "discovered": true,
+        "discoveredAt": 1754592995281
+      },
+      "shovel_5": {
+        "discovered": true,
+        "discoveredAt": 1754592995284
+      },
+      "shovel_10": {
+        "discovered": true,
+        "discoveredAt": 1754592995286
+      },
+      "spear_5": {
+        "discovered": true,
+        "discoveredAt": 1754592995287
+      },
+      "spear_10": {
+        "discovered": true,
+        "discoveredAt": 1754592995289
+      },
+      "goblin pet": {
+        "discovered": true,
+        "discoveredAt": 1754592995290
+      },
+      "knight pet": {
+        "discovered": true,
+        "discoveredAt": 1754592995291
+      },
+      "dragon pet": {
+        "discovered": true,
+        "discoveredAt": 1754592995292
       }
     },
-    "mana": 41,
+    "mana": 100,
     "lastManaRegen": 1754590408674,
     "countdownStart": 1754590415542,
     "level": 2,
@@ -441,5 +543,13 @@
       "armor": null,
       "ride": null
     }
+  },
+  "undefined": {
+    "coins": 100,
+    "lastDaily": 0,
+    "inventory": {},
+    "archive": {},
+    "level": 1,
+    "exp": 0
   }
 }

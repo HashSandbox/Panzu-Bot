@@ -7487,6 +7487,52 @@ client.on('interactionCreate', async interaction => {
         }
         break;
 
+      case 'dungeonmulti':
+        console.log('🎮 Multiplayer dungeon command triggered by user:', user.username);
+        
+        const dungeonMultiEmbed = {
+          color: 0x8B4513,
+          title: '🎮 **Multiplayer Dungeon Battles**',
+          description: `*Gather your friends and face powerful bosses together, ${user.username}!*\n\n💰 **Your Coins:** ${getUserCoins(user.id)} Panda Coins`,
+          thumbnail: {
+            url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+          },
+          fields: [
+            {
+              name: '👹 **The Crazy Giant** ⚔️ Boss',
+              value: `🎯 **Challenge:** Multiplayer\n💰 **Entry Cost:** 100 Panda Coins (Host only)\n⏰ **Join Window:** 30 seconds\n👥 **Players:** 2-4 players\n🎁 **Rewards:** 500 coins split among survivors\n\n*"A massive giant that grows stronger when enraged..."*`,
+              inline: false,
+            },
+            {
+              name: '⚔️ **Battle Mechanics**',
+              value: `🔄 **Turn-based combat** with strategic depth\n👹 **Boss attacks all players** each round\n⚔️ **Players attack one by one**\n🛡️ **Defend** to reduce damage\n⏰ **10-second turns** with auto-attack\n🎯 **500 coin reward pool** for survivors`,
+              inline: false,
+            },
+          ],
+          footer: {
+            text: '🎮 Choose your boss and gather your team!',
+            icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+          },
+          timestamp: new Date().toISOString()
+        };
+
+        const dungeonMultiRow = {
+          type: 1,
+          components: [
+            {
+              type: 2,
+              style: 4, // Danger style (red) for giant
+              label: '⚔️ Fight The Crazy Giant',
+              custom_id: 'multi_fight_crazy_giant',
+              emoji: { name: '👹' },
+            },
+          ],
+        };
+
+        await interaction.reply({ embeds: [dungeonMultiEmbed], components: [dungeonMultiRow] });
+        console.log('✅ Multiplayer dungeon command completed successfully');
+        break;
+
       case 'merchant':
         const merchantMode = interaction.options.getString('mode');
 

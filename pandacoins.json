@@ -1,7 +1,7 @@
 {
   "460411620473044993": {
-    "coins": 9315,
-    "lastDaily": 1754503437516,
+    "coins": 9218,
+    "lastDaily": 1754613126663,
     "inventory": {
       "small potion": 12,
       "spear_3": 12,
@@ -13,7 +13,8 @@
       "shovel_5": 10,
       "shovel_10": 10,
       "spear_5": 10,
-      "spear_10": 10
+      "spear_10": 10,
+      "orc's eyeball": 1
     },
     "gear": {
       "weapon": {
@@ -44,17 +45,17 @@
       }
     },
     "equipped": {
-      "weapon": "fortified steel waraxe",
       "helmet": "fortified steel helmet",
       "ride": null,
-      "armor": "fortified steel armor"
+      "armor": "fortified steel armor",
+      "weapon": "fortified steel waraxe"
     },
     "pets": {
       "goblin pet": 4,
       "knight pet": 3,
       "dragon pet": 3
     },
-    "equippedPet": "goblin pet",
+    "equippedPet": "dragon pet",
     "archive": {
       "shovel_2": {
         "discovered": true,
@@ -229,11 +230,12 @@
         "discoveredAt": 1754592995292
       }
     },
-    "mana": 100,
-    "lastManaRegen": 1754590408674,
-    "countdownStart": 1754590415542,
+    "mana": 70,
+    "lastManaRegen": 1754613028674,
+    "countdownStart": 1754613085604,
     "level": 2,
-    "exp": 20
+    "exp": 140,
+    "stamina": 160
   },
   "402711683346464768": {
     "coins": 163,
@@ -502,7 +504,7 @@
     "mana": 80
   },
   "638702384046145536": {
-    "coins": 3,
+    "coins": 443,
     "lastDaily": 1754591163068,
     "inventory": {
       "sock": 1
@@ -542,7 +544,9 @@
       "helmet": null,
       "armor": null,
       "ride": null
-    }
+    },
+    "level": 1,
+    "exp": 0
   },
   "undefined": {
     "coins": 100,

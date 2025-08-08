@@ -278,14 +278,14 @@ loadMultiplayerBattles();
 const multiplayerBosses = {
   crazy_giant: {
     name: "The Crazy Giant",
-    health: 150,
-    maxHealth: 150,
-    attack: 18,
-    defense: 8,
+    health: 80,
+    maxHealth: 80,
+    attack: 15,
+    defense: 5,
     special: "giant_slam",
     phases: [
-      { health: 100, behavior: "normal" },
-      { health: 50, behavior: "enraged" }
+      { health: 50, behavior: "normal" },
+      { health: 25, behavior: "enraged" }
     ]
   }
 };
@@ -297,28 +297,53 @@ function generateBattleId() {
 
 // Create multiplayer battle
 function createMultiplayerBattle(userId, bossType) {
+  console.log(`🔍 DEBUG: createMultiplayerBattle called with userId: ${userId}, bossType: ${bossType}`);
+  
   const battleId = generateBattleId();
+  console.log(`🔍 DEBUG: Generated battleId: ${battleId}`);
+  
   const boss = multiplayerBosses[bossType];
+  console.log(`🔍 DEBUG: Boss object:`, boss);
   
   if (!boss) {
+    console.log(`🔍 DEBUG: Invalid boss type: ${bossType}`);
     return { success: false, error: 'Invalid boss type' };
   }
   
-  // Check if user has enough coins
+  // Check if user has enough coins and mana
+  console.log(`🔍 DEBUG: Checking coins for userId: ${userId}`);
   const userCoins = getUserCoins(userId);
-  if (userCoins < 100) {
-    return { success: false, error: 'You need 100 Panda Coins to create a battle' };
+  console.log(`🔍 DEBUG: User coins: ${userCoins}`);
+  
+  if (userCoins < 75) {
+    console.log(`🔍 DEBUG: Not enough coins. User has: ${userCoins}, needs: 75`);
+    return { success: false, error: 'You need 75 Panda Coins to create a battle' };
   }
   
-  // Deduct coins
-  removeCoins(userId, 100);
+  // Check if user has enough mana
+  console.log(`🔍 DEBUG: Checking mana for userId: ${userId}`);
+  const userMana = getUserMana(userId);
+  console.log(`🔍 DEBUG: User mana: ${userMana}`);
+  
+  if (userMana < 45) {
+    console.log(`🔍 DEBUG: Not enough mana. User has: ${userMana}, needs: 45`);
+    return { success: false, error: 'You need 45 mana to create a battle' };
+  }
+  
+  // Deduct coins and mana
+  console.log(`🔍 DEBUG: Deducting 75 coins and 45 mana from userId: ${userId}`);
+  removeCoins(userId, 75);
+  spendMana(userId, 45);
+  console.log(`🔍 DEBUG: Coins and mana deducted successfully`);
   
   // Get host username
+  console.log(`🔍 DEBUG: Getting host username for userId: ${userId}`);
   let hostUsername = 'Unknown';
   try {
     const user = client.users.cache.get(userId);
     if (user) {
       hostUsername = user.username;
+      console.log(`🔍 DEBUG: Found host username: ${hostUsername}`);
     }
   } catch (error) {
     console.log(`Could not get username for host ${userId}`);
@@ -354,8 +379,13 @@ function createMultiplayerBattle(userId, bossType) {
     turnDeadline: null // When current player's turn expires
   };
   
-  saveMultiplayerBattles();
+  console.log(`🔍 DEBUG: Creating battle state for battleId: ${battleId}`);
+  console.log(`🔍 DEBUG: Battle state created successfully`);
   
+  saveMultiplayerBattles();
+  console.log(`🔍 DEBUG: Multiplayer battles saved to file`);
+  
+  console.log(`🔍 DEBUG: createMultiplayerBattle completed successfully`);
   return { success: true, battleId, boss };
 }
 
@@ -400,6 +430,11 @@ function joinMultiplayerBattle(userId, battleId) {
     return { success: false, error: 'You have already joined this battle' };
   }
   
+  // Check if user is the host (host can't join their own battle)
+  if (battle.host === userId) {
+    return { success: false, error: 'You are the host of this battle and cannot join it again' };
+  }
+  
   // Check if battle is full (max 4 players)
   if (battle.players.length >= 4) {
     return { success: false, error: 'Battle is full' };
@@ -431,7 +466,7 @@ function joinMultiplayerBattle(userId, battleId) {
 }
 
 // Check and refund if no one joined
-function checkAndRefundBattle(battleId) {
+async function checkAndRefundBattle(battleId) {
   const battle = multiplayerBattles[battleId];
   
   if (!battle || battle.status !== 'waiting') {
@@ -439,11 +474,59 @@ function checkAndRefundBattle(battleId) {
   }
   
   if (Date.now() > battle.joinDeadline && battle.players.length < 2) {
-    // Refund the host if not enough players joined
-    addCoins(battle.host, 100);
+                          // Refund the host if not enough players joined
+                      addCoins(battle.host, 75);
+                      addMana(battle.host, 45);
     battle.status = 'cancelled';
     saveMultiplayerBattles();
-    return { success: true, message: 'Battle cancelled - not enough players joined. Host refunded 100 coins.' };
+    
+    // Send expired battle embed to channel
+    if (battle.channelId) {
+      try {
+        const channel = client.channels.cache.get(battle.channelId);
+        if (channel) {
+          const expiredEmbed = {
+            color: 0xFF0000,
+            title: '⏰ **Battle Expired!**',
+            description: `**${battle.hostUsername || 'Unknown'}**'s battle against **The Crazy Giant** has expired!`,
+            fields: [
+              {
+                name: '👹 Boss',
+                value: 'The Crazy Giant',
+                inline: true
+              },
+              {
+                name: '👥 Players Joined',
+                value: `${battle.players.length}/4`,
+                inline: true
+              },
+                                              {
+                                  name: '💰 Refund',
+                                  value: '75 Panda Coins + 45 Mana returned to host',
+                                  inline: true
+                                },
+              {
+                name: '🎯 Battle ID',
+                value: `\`${battleId}\``,
+                inline: false
+              }
+            ],
+            footer: {
+              text: 'Not enough players joined within the time limit',
+              icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+            },
+            timestamp: new Date().toISOString()
+          };
+          
+          await channel.send({ embeds: [expiredEmbed] });
+          console.log(`⏰ Sent expired battle embed for ${battleId}`);
+        }
+      } catch (error) {
+        console.log(`❌ Could not send expired battle embed for ${battleId}:`, error.message);
+      }
+    }
+    
+    return { success: true, message: 'Battle cancelled - not enough players joined. Host refunded 75 coins and 45 stamina.' };
   } else if (Date.now() > battle.joinDeadline && battle.players.length >= 2) {
     // Start battle if enough players joined but time expired
     const result = startMultiplayerBattle(battleId);
@@ -632,13 +715,61 @@ function processMultiplayerAttack(userId, battleId, attackType) {
   // Check for battle end
   const alivePlayers = battle.players.filter(p => p.health > 0);
   if (battle.bossHealth <= 0) {
-    // Victory
+    // Victory - all players get rewards, including dead ones
     battle.status = 'completed';
-    const rewardPerPlayer = Math.floor(500 / alivePlayers.length);
-    alivePlayers.forEach(player => {
+    const rewardPerPlayer = Math.floor(300 / battle.players.length);
+    const expPerPlayer = 25;
+    
+    battle.players.forEach(player => {
       addCoins(player.userId, rewardPerPlayer);
+      addExperience(player.userId, expPerPlayer);
+      
+      // Crazy Giant loot drops
+      const dropChance = Math.random() * 100;
+      let dropMessage = '';
+      
+      if (dropChance < 0.5) {
+        // 0.5% chance for Golden Puppy
+        addPetToInventory(player.userId, 'Golden Puppy', 1);
+        markItemDiscovered(player.userId, 'Golden Puppy');
+        dropMessage = `🎁 **${player.userId === battle.host ? 'Host' : 'Player'}** found **Golden Puppy**! (+6 luck)`;
+      } else if (dropChance < 4) {
+        // 3.5% chance for Cerberus
+        addGearToInventory(player.userId, 'ride', 'Cerberus', 1);
+        markItemDiscovered(player.userId, 'Cerberus');
+        dropMessage = `🎁 **${player.userId === battle.host ? 'Host' : 'Player'}** found **Cerberus**! (+2 attack, +6 speed)`;
+      } else if (dropChance < 16) {
+        // 12% chance for Broken Ancient Dual Blades
+        addGearToInventory(player.userId, 'weapon', 'Broken Ancient Dual Blades', 1);
+        markItemDiscovered(player.userId, 'Broken Ancient Dual Blades');
+        dropMessage = `🎁 **${player.userId === battle.host ? 'Host' : 'Player'}** found **Broken Ancient Dual Blades**! (+15 attack, +2 speed)`;
+      } else if (dropChance < 28) {
+        // 12% chance for Broken Ancient Armor
+        addGearToInventory(player.userId, 'armor', 'Broken Ancient Armor', 1);
+        markItemDiscovered(player.userId, 'Broken Ancient Armor');
+        dropMessage = `🎁 **${player.userId === battle.host ? 'Host' : 'Player'}** found **Broken Ancient Armor**! (+10 health, +9 defense)`;
+      } else if (dropChance < 40) {
+        // 12% chance for Broken Ancient Helmet
+        addGearToInventory(player.userId, 'helmet', 'Broken Ancient Helmet', 1);
+        markItemDiscovered(player.userId, 'Broken Ancient Helmet');
+        dropMessage = `🎁 **${player.userId === battle.host ? 'Host' : 'Player'}** found **Broken Ancient Helmet**! (+9 defense, +9 health)`;
+      } else if (dropChance < 60) {
+        // 20% chance for Giant's Massive Club
+        addItemToInventory(player.userId, "Giant's Massive Club", 1);
+        markItemDiscovered(player.userId, "Giant's Massive Club");
+        dropMessage = `🎁 **${player.userId === battle.host ? 'Host' : 'Player'}** found **Giant's Massive Club**! (Sell for 8 coins)`;
+      } else if (dropChance < 80) {
+        // 20% chance for Giant's Jewel
+        addItemToInventory(player.userId, "Giant's Jewel", 1);
+        markItemDiscovered(player.userId, "Giant's Jewel");
+        dropMessage = `🎁 **${player.userId === battle.host ? 'Host' : 'Player'}** found **Giant's Jewel**! (Sell for 24 coins)`;
+      }
+      
+      if (dropMessage) {
+        battle.battleLog.push(dropMessage);
+      }
     });
-    battle.battleLog.push(`\n🎉 **VICTORY!** Boss defeated! Each survivor gets **${rewardPerPlayer}** Panda Coins!`);
+    battle.battleLog.push(`\n🎉 **VICTORY!** Boss defeated! Each player gets **${rewardPerPlayer}** Panda Coins and **${expPerPlayer}** experience!`);
   } else if (alivePlayers.length === 0) {
     // Defeat - only when ALL players are dead
     battle.status = 'completed';
@@ -729,6 +860,7 @@ function handleExpiredTurns() {
 
 // Update multiplayer battle embeds with live countdown
 async function updateMultiplayerBattleEmbeds() {
+  console.log('⏰ Checking for waiting battles to update...');
   for (const battleId of Object.keys(multiplayerBattles)) {
     const battle = multiplayerBattles[battleId];
     
@@ -736,9 +868,11 @@ async function updateMultiplayerBattleEmbeds() {
       const timeRemaining = getBattleTimeRemaining(battleId);
       const formattedTime = formatBattleCountdown(timeRemaining);
       
+      console.log(`⏰ Battle ${battleId}: ${formattedTime} remaining, ${battle.players.length} players`);
+      
       // Check if battle should start or be refunded
       if (timeRemaining <= 0) {
-        const refundResult = checkAndRefundBattle(battleId);
+        const refundResult = await checkAndRefundBattle(battleId);
         if (refundResult) {
           console.log(`⏰ Auto-updated battle ${battleId}: ${refundResult.message}`);
           
@@ -794,14 +928,17 @@ async function updateMultiplayerBattleEmbeds() {
             }
           }
         }
-      } else {
-        // Update waiting battle embed with live countdown
-        if (battle.messageId && battle.channelId) {
-          try {
-            const channel = client.channels.cache.get(battle.channelId);
-            if (channel) {
-              const message = await channel.messages.fetch(battle.messageId);
-              if (message) {
+              } else {
+          // Update waiting battle embed with live countdown
+          if (battle.messageId && battle.channelId) {
+            console.log(`⏰ Attempting to update embed for battle ${battleId}...`);
+            try {
+              const channel = client.channels.cache.get(battle.channelId);
+              if (channel) {
+                console.log(`⏰ Found channel ${battle.channelId} for battle ${battleId}`);
+                const message = await channel.messages.fetch(battle.messageId);
+                if (message) {
+                  console.log(`⏰ Found message ${battle.messageId} for battle ${battleId}`);
                 // Create updated embed with live countdown
                 const boss = multiplayerBosses[battle.boss];
                 const updatedEmbed = {
@@ -816,7 +953,7 @@ async function updateMultiplayerBattleEmbeds() {
                     },
                     {
                       name: '💰 Entry Cost',
-                      value: '100 Panda Coins (PAID)',
+                      value: '75 Panda Coins (PAID)',
                       inline: true
                     },
                     {
@@ -866,6 +1003,77 @@ async function updateMultiplayerBattleEmbeds() {
             }
           } catch (error) {
             console.log(`❌ Could not edit message for battle ${battleId}:`, error.message);
+          }
+        }
+        
+        // Also update the join embed if it exists
+        if (battle.joinMessageId && battle.channelId) {
+          try {
+            const channel = client.channels.cache.get(battle.channelId);
+            if (channel) {
+              const joinMessage = await channel.messages.fetch(battle.joinMessageId);
+              if (joinMessage) {
+                // Get boss data for the join embed
+                const boss = multiplayerBosses[battle.boss];
+                
+                // Create updated join embed with live countdown
+                const updatedJoinEmbed = {
+                  color: 0x00FF00,
+                  title: '🎮 **Player Joined Multiplayer Battle!**',
+                  description: `**${battle.hostUsername || 'Unknown'}** has joined the battle against **${boss.name}**!`,
+                  fields: [
+                    {
+                      name: '👹 Boss',
+                      value: `${boss.name}`,
+                      inline: true
+                    },
+                    {
+                      name: '👥 Players',
+                      value: `${battle.players.length}/4`,
+                      inline: true
+                    },
+                    {
+                      name: '⏰ Time Remaining',
+                      value: `${formattedTime}`,
+                      inline: true
+                    },
+                    {
+                      name: '🎯 Battle ID',
+                      value: `\`${battleId}\``,
+                      inline: false
+                    }
+                  ],
+                  footer: {
+                    text: battle.players.length >= 4 ? 'Battle will start immediately!' : `Waiting for more players... (${formattedTime} left, min 2 players)`,
+                    icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
+                  },
+                  timestamp: new Date().toISOString()
+                };
+                
+                // Add join button for other players if battle is still waiting
+                let updatedJoinRow = null;
+                if (battle.status === 'waiting' && battle.players.length < 4) {
+                  updatedJoinRow = {
+                    type: 1,
+                    components: [
+                      {
+                        type: 2,
+                        style: 3, // Success style (green)
+                        label: '⚔️ JOIN BATTLE',
+                        custom_id: `multi_join_${battleId}`,
+                        emoji: { name: '⚔️' },
+                      },
+                    ],
+                  };
+                }
+                
+                const components = updatedJoinRow ? [updatedJoinRow] : [];
+                await joinMessage.edit({ embeds: [updatedJoinEmbed], components: components });
+                console.log(`⏰ Updated join embed countdown for battle ${battleId}: ${formattedTime} remaining`);
+              }
+            }
+          } catch (error) {
+            console.log(`❌ Could not edit join message for battle ${battleId}:`, error.message);
           }
         }
       }
@@ -1274,23 +1482,27 @@ const gearStats = {
     'goblin arm': { attack: 3, slapChance: 20 },
     'knight\'s rusty blade': { attack: 7, defense: 3 },
     'bow & arrow': { attack: 4, headshotChance: 20 },
-    'fortified steel waraxe': { attack: 12, defense: 2 }
+    'fortified steel waraxe': { attack: 12, defense: 2 },
+    'Broken Ancient Dual Blades': { attack: 15, speed: 2 }
   },
           helmet: {
           'goblin mask': { defense: 1, health: 1 },
           'knight\'s rusty helmet': { defense: 3 },
           'old worn helmet': { defense: 1, health: 2 },
           'shiny reindeer antlers': { defense: 5, health: 9, luck: 2 },
-          'fortified steel helmet': { defense: 6, health: 3 }
+          'fortified steel helmet': { defense: 6, health: 3 },
+          'Broken Ancient Helmet': { defense: 9, health: 9 }
         },
   armor: {
     'goblin clothing': { defense: 2, health: 1 },
     'knight\'s rusty armor': { defense: 6, health: 3 },
     'old worn armor': { defense: 1, health: 1 },
-    'fortified steel armor': { defense: 10, health: 5 }
+    'fortified steel armor': { defense: 10, health: 5 },
+    'Broken Ancient Armor': { health: 10, defense: 9 }
   },
   ride: {
-    horse: { speed: 2 }
+    horse: { speed: 2 },
+    'Cerberus': { attack: 2, speed: 6 }
   }
 };
 
@@ -1298,7 +1510,8 @@ const gearStats = {
 const petStats = {
   'goblin pet': { luck: 3 },
   'bunny pet': { luck: 5 },
-  'knight companion': { defense: 1, luck: 3 }
+  'knight companion': { defense: 1, luck: 3 },
+  'Golden Puppy': { luck: 6 }
 };
 
 // Gear set bonuses
@@ -1326,6 +1539,19 @@ const gearSetBonuses = {
     bonuses: {
       health: 8,
       defense: 5
+    }
+  },
+  'The Broken Ancient\'s Bonus': {
+    name: 'The Broken Ancient\'s Bonus',
+    description: 'Wearing the complete Broken Ancient set grants massive health and attack bonuses',
+    requiredItems: {
+      helmet: 'Broken Ancient Helmet',
+      weapon: 'Broken Ancient Dual Blades',
+      armor: 'Broken Ancient Armor'
+    },
+    bonuses: {
+      health: 12,
+      attack: 6
     }
   }
 };
@@ -1365,7 +1591,9 @@ const merchantPrices = {
   'bear claw': 8,
   'golden deer antler': 15,
   'orc\'s eyeball': 10,
-  'orc\'s hidden jewel': 25
+  'orc\'s hidden jewel': 25,
+  'Giant\'s Jewel': 24,
+  'Giant\'s Massive Club': 8
 };
 
 // Merchant buying inventory (items the merchant sells to players)
@@ -1416,6 +1644,8 @@ const itemEmotes = {
   'goblin tooth': '🦷', // Replace with <:goblin_tooth:EMOTE_ID> when you create it
   'knight\'s jewel': '💎', // Replace with <:knight_jewel:EMOTE_ID> when you create it
   'broken blade': '🗡️', // Replace with <:broken_blade:EMOTE_ID> when you create it
+  'Giant\'s Jewel': '💎✨', // Replace with custom emote when created
+  'Giant\'s Massive Club': '🏏', // Replace with custom emote when created
   
   // Default fallback
   'default': '📦'
@@ -1775,6 +2005,69 @@ const itemDatabase = {
     uses: 'Equip to greatly increase your speed, providing enhanced dodge chance in battles (4% per speed point).',
     obtainedFrom: '⚔️ **Dungeon:** Defeat The Orc (0.5% drop chance)\n💪 **Strategy:** Use /dungeon orc to fight\n⏰ **Cooldown:** 30 minutes between fights\n🍀 **Luck:** Use /charm to increase drop chances',
     rarity: 'extremely rare'
+  },
+  'Giant\'s Jewel': {
+    category: 'material',
+    emoji: '💎✨',
+    description: 'A magnificent jewel from The Crazy Giant. Radiates with ancient power and immense value.',
+    stats: {},
+    uses: 'Sell to the merchant for 24 Panda Coins.',
+    obtainedFrom: '⚔️ **Multiplayer:** Defeat The Crazy Giant (20% drop chance)\n👥 **Team:** Requires 2-4 players\n💰 **Merchant:** Sell for 24 Panda Coins',
+    rarity: 'rare'
+  },
+  'Giant\'s Massive Club': {
+    category: 'material',
+    emoji: '🏏',
+    description: 'A massive club wielded by The Crazy Giant. Heavy and valuable to collectors.',
+    stats: {},
+    uses: 'Sell to the merchant for 8 Panda Coins.',
+    obtainedFrom: '⚔️ **Multiplayer:** Defeat The Crazy Giant (20% drop chance)\n👥 **Team:** Requires 2-4 players\n💰 **Merchant:** Sell for 8 Panda Coins',
+    rarity: 'uncommon'
+  },
+  'Broken Ancient Dual Blades': {
+    category: 'weapon',
+    emoji: '⚔️',
+    description: 'Ancient dual blades that once belonged to a legendary warrior. Extremely sharp and deadly.',
+    stats: { attack: 15, speed: 2 },
+    uses: 'Equip to gain massive attack power and speed bonuses. The ultimate dual-wielding weapon.',
+    obtainedFrom: '⚔️ **Multiplayer:** Defeat The Crazy Giant (12% drop chance)\n👥 **Team:** Requires 2-4 players\n⚔️ **Exclusive:** Rare multiplayer boss drop',
+    rarity: 'legendary'
+  },
+  'Broken Ancient Armor': {
+    category: 'armor',
+    emoji: '🛡️',
+    description: 'Ancient armor forged with forgotten techniques. Provides exceptional protection and vitality.',
+    stats: { health: 10, defense: 9 },
+    uses: 'Equip to gain massive health and defense bonuses. The pinnacle of ancient armor.',
+    obtainedFrom: '⚔️ **Multiplayer:** Defeat The Crazy Giant (12% drop chance)\n👥 **Team:** Requires 2-4 players\n⚔️ **Exclusive:** Rare multiplayer boss drop',
+    rarity: 'legendary'
+  },
+  'Broken Ancient Helmet': {
+    category: 'helmet',
+    emoji: '🪖',
+    description: 'An ancient helmet crafted with lost techniques. Offers superior protection and vitality.',
+    stats: { defense: 9, health: 9 },
+    uses: 'Equip to gain massive defense and health bonuses. The ultimate head protection.',
+    obtainedFrom: '⚔️ **Multiplayer:** Defeat The Crazy Giant (12% drop chance)\n👥 **Team:** Requires 2-4 players\n⚔️ **Exclusive:** Rare multiplayer boss drop',
+    rarity: 'legendary'
+  },
+  'Cerberus': {
+    category: 'ride',
+    emoji: '🐕',
+    description: 'A legendary three-headed dog from ancient mythology. Provides exceptional speed and attack power.',
+    stats: { attack: 2, speed: 6 },
+    uses: 'Equip to greatly increase your speed and attack power. The ultimate mythical mount.',
+    obtainedFrom: '⚔️ **Multiplayer:** Defeat The Crazy Giant (3.5% drop chance)\n👥 **Team:** Requires 2-4 players\n⚔️ **Exclusive:** Extremely rare multiplayer boss drop',
+    rarity: 'mythical'
+  },
+  'Golden Puppy': {
+    category: 'pet',
+    emoji: '🐕✨',
+    description: 'A magical golden puppy with extraordinary luck. Brings immense fortune to its owner.',
+    stats: { luck: 6 },
+    uses: 'Equip to gain massive luck bonuses, greatly improving enemy miss chances and drop rates.',
+    obtainedFrom: '⚔️ **Multiplayer:** Defeat The Crazy Giant (0.5% drop chance)\n👥 **Team:** Requires 2-4 players\n⚔️ **Exclusive:** Extremely rare multiplayer boss drop',
+    rarity: 'mythical'
   }
 };
 
@@ -2597,10 +2890,42 @@ function removeCoins(userId, amount) {
   return false;
 }
 
+// Remove stamina from user
+function removeStamina(userId, amount) {
+  console.log(`🔍 DEBUG: removeStamina called with userId: ${userId}, amount: ${amount}`);
+  
+  if (!pandaCoinData[userId]) {
+    pandaCoinData[userId] = { coins: 0, lastDaily: 0, inventory: {}, archive: {}, level: 1, exp: 0, stamina: 100 };
+    console.log(`🔍 DEBUG: Initialized pandaCoinData for userId: ${userId}`);
+  }
+  
+  console.log(`🔍 DEBUG: Current stamina: ${pandaCoinData[userId].stamina} (type: ${typeof pandaCoinData[userId].stamina})`);
+  console.log(`🔍 DEBUG: Stamina >= amount check: ${pandaCoinData[userId].stamina} >= ${amount} = ${pandaCoinData[userId].stamina >= amount}`);
+  
+  if (pandaCoinData[userId].stamina >= amount) {
+    pandaCoinData[userId].stamina -= amount;
+    console.log(`🔍 DEBUG: Stamina deducted: ${pandaCoinData[userId].stamina + amount} - ${amount} = ${pandaCoinData[userId].stamina}`);
+    savePandaCoinData();
+    return true;
+  }
+  console.log(`🔍 DEBUG: Not enough stamina to deduct`);
+  return false;
+}
+
+// Add stamina to user
+function addStamina(userId, amount) {
+  if (!pandaCoinData[userId]) {
+    pandaCoinData[userId] = { coins: 0, lastDaily: 0, inventory: {}, archive: {}, level: 1, exp: 0, stamina: 100 };
+  }
+  pandaCoinData[userId].stamina += amount;
+  savePandaCoinData();
+  return true;
+}
+
 // Add coins to user
 function addCoins(userId, amount, guild = null) {
   if (!pandaCoinData[userId]) {
-    pandaCoinData[userId] = { coins: 0, lastDaily: 0, inventory: {}, archive: {}, level: 1, exp: 0 };
+    pandaCoinData[userId] = { coins: 0, lastDaily: 0, inventory: {}, archive: {}, level: 1, exp: 0, stamina: 100 };
   }
   pandaCoinData[userId].coins += amount;
   savePandaCoinData();
@@ -2894,9 +3219,9 @@ const commands = [
       },
       {
         name: 'item',
-        description: 'The item name to unequip',
+        description: 'The item name to unequip (optional - will unequip whatever is equipped)',
         type: 3,
-        required: true,
+        required: false,
         autocomplete: true
       }
     ]
@@ -3181,10 +3506,7 @@ const commands = [
     name: 'dungeonmulti',
     description: 'Multiplayer dungeon battles with friends'
   },
-  {
-    name: 'giveall',
-    description: 'Give all items and coins for testing (ADMIN ONLY)'
-  },
+
   {
     name: 'battle',
     description: 'Check battle status or attack in multiplayer battles'
@@ -3240,13 +3562,13 @@ client.on('interactionCreate', async interaction => {
       
       // Define items by category (same as archive pages)
       const categoryItems = {
-        helmets: ['goblin mask', 'knight\'s rusty helmet', 'old worn helmet', 'shiny reindeer antlers', 'fortified steel helmet'],
-        armor: ['goblin clothing', 'knight\'s rusty armor', 'old worn armor', 'fortified steel armor'],
-        weapons: ['axe', 'goblin arm', 'knight\'s rusty blade', 'bow & arrow', 'shovel', 'spear', 'fortified steel waraxe'],
-        pets: ['goblin pet', 'bunny pet', 'knight companion'],
-        materials: ['sock', 'skull', 'reindeer skin', 'wolf pelt', 'bear claw', 'golden deer antler', 'orc\'s eyeball', 'orc\'s hidden jewel'],
+        helmets: ['goblin mask', 'knight\'s rusty helmet', 'old worn helmet', 'shiny reindeer antlers', 'fortified steel helmet', 'Broken Ancient Helmet'],
+        armor: ['goblin clothing', 'knight\'s rusty armor', 'old worn armor', 'fortified steel armor', 'Broken Ancient Armor'],
+        weapons: ['axe', 'goblin arm', 'knight\'s rusty blade', 'bow & arrow', 'fortified steel waraxe', 'Broken Ancient Dual Blades'],
+        pets: ['goblin pet', 'bunny pet', 'knight companion', 'Golden Puppy'],
+        materials: ['sock', 'skull', 'reindeer skin', 'wolf pelt', 'bear claw', 'golden deer antler', 'orc\'s eyeball', 'orc\'s hidden jewel', 'Giant\'s Jewel', 'Giant\'s Massive Club'],
         consumables: ['small potion', 'small mana potion'],
-        mounts: ['horse', 'orc mount']
+        mounts: ['horse', 'orc mount', 'Cerberus']
       };
       
       // Get items for the selected category
@@ -3265,24 +3587,63 @@ client.on('interactionCreate', async interaction => {
       await interaction.respond(choices);
     }
     
-    if (commandName === 'equip' || commandName === 'unequip') {
+    if (commandName === 'equip') {
       const focusedValue = interaction.options.getFocused();
       const category = interaction.options.getString('category');
       
-      // Define items by equipment category
-      const equipmentItems = {
-        weapon: ['axe', 'goblin arm', 'knight\'s rusty blade', 'bow & arrow', 'shovel', 'spear', 'fortified steel waraxe'],
-        helmet: ['goblin mask', 'knight\'s rusty helmet', 'old worn helmet', 'shiny reindeer antlers', 'fortified steel helmet'],
-        armor: ['goblin clothing', 'knight\'s rusty armor', 'old worn armor', 'fortified steel armor'],
-        pet: ['goblin pet', 'bunny pet', 'knight companion'],
-        ride: ['horse', 'orc mount']
-      };
+      // Get user's gear inventory
+      const userGear = getUserGear(interaction.user.id);
+      const userPets = getUserPets(interaction.user.id);
       
-      // Get items for the selected category
-      const items = equipmentItems[category] || [];
+      let availableItems = [];
+      
+      if (category === 'pet') {
+        // For pets, check user's pet inventory
+        availableItems = Object.keys(userPets).filter(pet => userPets[pet] > 0);
+      } else {
+        // For gear, check user's gear inventory
+        const categoryGear = userGear[category] || {};
+        availableItems = Object.keys(categoryGear).filter(item => categoryGear[item] > 0);
+      }
       
       // Filter items based on what the user is typing
-      const filteredItems = items.filter(item => 
+      const filteredItems = availableItems.filter(item => 
+        item.toLowerCase().includes(focusedValue.toLowerCase())
+      ).slice(0, 25); // Discord limits to 25 choices
+      
+      const choices = filteredItems.map(item => ({
+        name: item.charAt(0).toUpperCase() + item.slice(1),
+        value: item
+      }));
+      
+      await interaction.respond(choices);
+    }
+    
+    if (commandName === 'unequip') {
+      const focusedValue = interaction.options.getFocused();
+      const category = interaction.options.getString('category');
+      
+      // Get user's currently equipped items
+      const userEquipped = getUserEquipped(interaction.user.id);
+      const userEquippedPet = getUserEquippedPet(interaction.user.id);
+      
+      let equippedItems = [];
+      
+      if (category === 'pet') {
+        // For pets, check if user has a pet equipped
+        if (userEquippedPet) {
+          equippedItems = [userEquippedPet];
+        }
+      } else {
+        // For gear, check if user has something equipped in that category
+        const equippedItem = userEquipped[category];
+        if (equippedItem) {
+          equippedItems = [equippedItem];
+        }
+      }
+      
+      // Filter items based on what the user is typing
+      const filteredItems = equippedItems.filter(item => 
         item.toLowerCase().includes(focusedValue.toLowerCase())
       ).slice(0, 25); // Discord limits to 25 choices
       
@@ -3910,7 +4271,8 @@ client.on('interactionCreate', async interaction => {
                   'knight\'s rusty helmet', 
                   'old worn helmet',
                   'shiny reindeer antlers',
-                  'fortified steel helmet'
+                  'fortified steel helmet',
+                  'Broken Ancient Helmet'
                 ],
                 description: 'Protective headgear that grants defense and health bonuses.'
               },
@@ -3920,7 +4282,8 @@ client.on('interactionCreate', async interaction => {
                   'goblin clothing',
                   'knight\'s rusty armor',
                   'old worn armor',
-                  'fortified steel armor'
+                  'fortified steel armor',
+                  'Broken Ancient Armor'
                 ],
                 description: 'Body protection that provides defense and health bonuses.'
               },
@@ -3933,7 +4296,8 @@ client.on('interactionCreate', async interaction => {
                   'bow & arrow',
                   'shovel',
                   'spear',
-                  'fortified steel waraxe'
+                  'fortified steel waraxe',
+                  'Broken Ancient Dual Blades'
                 ],
                 description: 'Weapons for combat and tools for gathering resources.'
               },
@@ -3942,7 +4306,8 @@ client.on('interactionCreate', async interaction => {
                 items: [
                   'goblin pet',
                   'bunny pet',
-                  'knight companion'
+                  'knight companion',
+                  'Golden Puppy'
                 ],
                 description: 'Loyal companions that provide luck and other bonuses.'
               },
@@ -3956,7 +4321,9 @@ client.on('interactionCreate', async interaction => {
                   'bear claw',
                   'golden deer antler',
                   'orc\'s eyeball',
-                  'orc\'s hidden jewel'
+                  'orc\'s hidden jewel',
+                  'Giant\'s Jewel',
+                  'Giant\'s Massive Club'
                 ],
                 description: 'Valuable materials that can be sold to merchants.'
               },
@@ -3972,7 +4339,8 @@ client.on('interactionCreate', async interaction => {
                 title: '🐎 **Mounts & Rides**',
                 items: [
                   'horse',
-                  'orc mount'
+                  'orc mount',
+                  'Cerberus'
                 ],
                 description: 'Transportation that provides speed bonuses.'
               }
@@ -4908,8 +5276,24 @@ client.on('interactionCreate', async interaction => {
           // Multiplayer dungeon button handlers
           if (customId === 'multi_fight_crazy_giant') {
             console.log('🎮 Multiplayer fight button clicked by:', user.username);
+            console.log('🔍 DEBUG: About to call createMultiplayerBattle with user.id:', user.id);
+            console.log('🔍 DEBUG: user.id type:', typeof user.id);
+            console.log('🔍 DEBUG: user.id value:', user.id);
             
-                      const result = createMultiplayerBattle(user.id, 'crazy_giant');
+            // TEMPORARY: Give user stamina for testing
+            addStamina(user.id, 50);
+            console.log('🔍 DEBUG: Added 50 stamina for testing');
+            
+            let result;
+            try {
+              result = createMultiplayerBattle(user.id, 'crazy_giant');
+              console.log('🔍 DEBUG: createMultiplayerBattle returned:', result);
+            } catch (error) {
+              console.log('🔍 DEBUG: Error in createMultiplayerBattle:', error);
+              console.log('🔍 DEBUG: Error stack:', error.stack);
+              await interaction.reply({ content: `❌ There was an error processing your request!`, ephemeral: true });
+              break;
+            }
           
           if (!result.success) {
             await interaction.reply({ content: `❌ ${result.error}`, ephemeral: true });
@@ -4932,7 +5316,7 @@ client.on('interactionCreate', async interaction => {
                 },
                 {
                   name: '💰 Entry Cost',
-                  value: '100 Panda Coins (PAID)',
+                  value: '75 Panda Coins (PAID)',
                   inline: true
                 },
                 {
@@ -4976,11 +5360,21 @@ client.on('interactionCreate', async interaction => {
               ],
             };
 
-            const reply = await interaction.reply({ embeds: [createEmbed], components: [joinRow] });
+            await interaction.reply({ embeds: [createEmbed], components: [joinRow] });
             
-            // Store the message ID for live updates
-            if (reply && reply.id) {
-              multiplayerBattles[result.battleId].messageId = reply.id;
+            // Get the message ID from the channel for live updates
+            try {
+              const channel = client.channels.cache.get(interaction.channelId);
+              if (channel) {
+                const messages = await channel.messages.fetch({ limit: 1 });
+                const message = messages.first();
+                if (message) {
+                  multiplayerBattles[result.battleId].messageId = message.id;
+                  console.log(`✅ Stored message ID ${message.id} for battle ${result.battleId}`);
+                }
+              }
+            } catch (error) {
+              console.log(`❌ Could not store message ID for battle ${result.battleId}:`, error.message);
             }
             
             console.log('✅ Multiplayer battle created successfully');
@@ -5004,7 +5398,7 @@ client.on('interactionCreate', async interaction => {
             const formattedTime = formatBattleCountdown(timeRemaining);
             
             // Check if battle should be refunded or started
-            const refundResult = checkAndRefundBattle(battleId);
+            const refundResult = await checkAndRefundBattle(battleId);
             if (refundResult) {
               if (refundResult.battleStarted) {
                 // Battle started! Show battle embed
@@ -5119,7 +5513,22 @@ client.on('interactionCreate', async interaction => {
             }
 
             const components = joinRow ? [joinRow] : [];
-            await interaction.reply({ embeds: [joinEmbed], components: components });
+            const reply = await interaction.reply({ embeds: [joinEmbed], components: components });
+            
+            // Store the join embed message ID for live updates
+            try {
+              const channel = client.channels.cache.get(interaction.channelId);
+              if (channel) {
+                const messages = await channel.messages.fetch({ limit: 1 });
+                const message = messages.first();
+                if (message) {
+                  battle.joinMessageId = message.id;
+                  console.log(`✅ Stored join message ID ${message.id} for battle ${battleId}`);
+                }
+              }
+            } catch (error) {
+              console.log(`❌ Could not store join message ID for battle ${battleId}:`, error.message);
+            }
             
             // Also update the original battle embed with new player count and time
             if (battle.messageId && battle.channelId) {
@@ -5141,7 +5550,7 @@ client.on('interactionCreate', async interaction => {
                         },
                         {
                           name: '💰 Entry Cost',
-                          value: '100 Panda Coins (PAID)',
+                          value: '75 Panda Coins (PAID)',
                           inline: true
                         },
                         {
@@ -5417,7 +5826,8 @@ client.on('interactionCreate', async interaction => {
               'knight\'s rusty helmet', 
               'old worn helmet',
               'shiny reindeer antlers',
-              'fortified steel helmet'
+              'fortified steel helmet',
+              'Broken Ancient Helmet'
             ],
             description: 'Protective headgear that grants defense and health bonuses.'
           },
@@ -5427,7 +5837,8 @@ client.on('interactionCreate', async interaction => {
               'goblin clothing',
               'knight\'s rusty armor',
               'old worn armor',
-              'fortified steel armor'
+              'fortified steel armor',
+              'Broken Ancient Armor'
             ],
             description: 'Body protection that provides defense and health bonuses.'
           },
@@ -5440,7 +5851,8 @@ client.on('interactionCreate', async interaction => {
               'bow & arrow',
               'shovel',
               'spear',
-              'fortified steel waraxe'
+              'fortified steel waraxe',
+              'Broken Ancient Dual Blades'
             ],
             description: 'Weapons for combat and tools for gathering resources.'
           },
@@ -5449,7 +5861,8 @@ client.on('interactionCreate', async interaction => {
             items: [
               'goblin pet',
               'bunny pet',
-              'knight companion'
+              'knight companion',
+              'Golden Puppy'
             ],
             description: 'Loyal companions that provide luck and other bonuses.'
           },
@@ -5463,7 +5876,9 @@ client.on('interactionCreate', async interaction => {
               'bear claw',
               'golden deer antler',
               'orc\'s eyeball',
-              'orc\'s hidden jewel'
+              'orc\'s hidden jewel',
+              'Giant\'s Jewel',
+              'Giant\'s Massive Club'
             ],
             description: 'Valuable materials that can be sold to merchants.'
           },
@@ -5479,7 +5894,8 @@ client.on('interactionCreate', async interaction => {
             title: '🐎 **Mounts & Rides**',
             items: [
               'horse',
-              'orc mount'
+              'orc mount',
+              'Cerberus'
             ],
             description: 'Transportation that provides speed bonuses.'
           }
@@ -6401,6 +6817,7 @@ client.on('interactionCreate', async interaction => {
             break;
           }
           
+          // If specific item is provided, verify it matches
           if (unequipItem && currentPet.toLowerCase() !== unequipItem.toLowerCase()) {
             await interaction.reply({ content: `❌ You don't have **${unequipItem}** equipped! You have **${currentPet}** equipped.`, ephemeral: true });
             break;
@@ -6424,6 +6841,7 @@ client.on('interactionCreate', async interaction => {
             break;
           }
 
+          // If specific item is provided, verify it matches
           if (unequipItem && currentItem.toLowerCase() !== unequipItem.toLowerCase()) {
             await interaction.reply({ content: `❌ You don't have **${unequipItem}** equipped in your ${unequipCategory} slot! You have **${currentItem}** equipped.`, ephemeral: true });
             break;
@@ -8027,12 +8445,12 @@ client.on('interactionCreate', async interaction => {
           fields: [
             {
               name: '👹 **The Crazy Giant** ⚔️ Boss',
-              value: `🎯 **Challenge:** Multiplayer\n💰 **Entry Cost:** 100 Panda Coins (Host only)\n⏰ **Join Window:** 30 seconds\n👥 **Players:** 2-4 players\n🎁 **Rewards:** 500 coins split among survivors\n\n*"A massive giant that grows stronger when enraged..."*`,
+                                value: `🎯 **Challenge:** Multiplayer\n💰 **Entry Cost:** 75 Panda Coins + 45 Mana (Host only)\n⏰ **Join Window:** 30 seconds\n👥 **Players:** 2-4 players\n🎁 **Rewards:** 300 coins + 25 exp split among all players\n\n*"A massive giant that grows stronger when enraged..."*`,
               inline: false,
             },
             {
               name: '⚔️ **Battle Mechanics**',
-              value: `🔄 **Turn-based combat** with strategic depth\n👹 **Boss attacks all players** each round\n⚔️ **Players attack one by one**\n🛡️ **Defend** to reduce damage\n⏰ **10-second turns** with auto-attack\n🎯 **500 coin reward pool** for survivors`,
+                                value: `🔄 **Turn-based combat** with strategic depth\n👹 **Boss attacks all players** each round\n⚔️ **Players attack one by one**\n🛡️ **Defend** to reduce damage\n⏰ **10-second turns** with auto-attack\n🎯 **300 coin + 25 exp reward pool** for all players`,
               inline: false,
             },
           ],
@@ -8491,101 +8909,7 @@ client.on('interactionCreate', async interaction => {
         }
         break;
 
-      case 'giveall':
-        console.log('🎁 Giveall command triggered by user:', user.username);
-        
-        // Check if user is admin (you can modify this check)
-        if (user.id !== '460411620473044993') { // Replace with your user ID
-          await interaction.reply({ content: '❌ This command is for testing only!', ephemeral: true });
-          break;
-        }
-        
-        // Give all gear types
-        const allGear = {
-          weapon: ['axe', 'sword', 'bow', 'spear', 'knight\'s rusty blade', 'fortified steel waraxe'],
-          helmet: ['goblin mask', 'knight\'s rusty helmet', 'old worn helmet', 'shiny reindeer antlers', 'fortified steel helmet'],
-          armor: ['goblin clothing', 'knight\'s rusty armor', 'old worn armor', 'fortified steel armor'],
-          ride: ['horse']
-        };
-        
-        // Give all items
-        const allItems = [
-          'small potion', 'medium potion', 'large potion', 'mysterious sock', 'skull',
-          'shovel_3', 'shovel_5', 'shovel_10', 'spear_3', 'spear_5', 'spear_10'
-        ];
-        
-        // Give all pets
-        const allPets = ['goblin pet', 'knight pet', 'dragon pet'];
-        
-        // Add all gear
-        Object.entries(allGear).forEach(([category, items]) => {
-          items.forEach(item => {
-            addGearToInventory(user.id, category, item, 5);
-          });
-        });
-        
-        // Add all items
-        allItems.forEach(item => {
-          addItemToInventory(user.id, item, 10);
-        });
-        
-        // Add all pets
-        allPets.forEach(pet => {
-          addPetToInventory(user.id, pet, 3);
-        });
-        
-        // Give lots of coins
-        addCoins(user.id, 10000);
-        
-        // Give lots of mana
-        addMana(user.id, 1000);
-        
-        const giveallEmbed = {
-          color: 0x00FF00,
-          title: '🎁 **Testing Items Given!**',
-          description: `**${user.username}** received all items for testing!`,
-          fields: [
-            {
-              name: '💰 Coins Added',
-              value: '10,000 Panda Coins',
-              inline: true
-            },
-            {
-              name: '🔮 Mana Added',
-              value: '1,000 Mana',
-              inline: true
-            },
-            {
-              name: '🎒 Items Added',
-              value: `${allItems.length} different items (10x each)`,
-              inline: true
-            },
-            {
-              name: '⚔️ Gear Added',
-              value: 'All weapon types (5x each)',
-              inline: true
-            },
-            {
-              name: '🛡️ Armor Added',
-              value: 'All helmet & armor types (5x each)',
-              inline: true
-            },
-            {
-              name: '🐾 Pets Added',
-              value: 'All pet types (3x each)',
-              inline: true
-            }
-          ],
-          footer: {
-            text: 'Testing mode activated! Use /inventory to see all items.',
-            icon_url: 'https://cdn.discordapp.com/emojis/1400990115555311758.webp?size=96&quality=lossless'
-          },
-          timestamp: new Date().toISOString()
-        };
-        
-        await interaction.reply({ embeds: [giveallEmbed] });
-        console.log('✅ Giveall command completed successfully');
-        break;
+
 
       case 'battle':
         console.log('⚔️ Battle command triggered by user:', user.username);
@@ -8665,9 +8989,9 @@ client.on('interactionCreate', async interaction => {
 });
 
 // Periodic check for expired multiplayer battles and update embeds
-setInterval(() => {
+setInterval(async () => {
   handleExpiredTurns();
-  updateMultiplayerBattleEmbeds();
-}, 5000); // Check every 5 seconds for turns, 10 seconds for embeds
+  await updateMultiplayerBattleEmbeds();
+}, 5000); // Check every 5 seconds for turns and embeds
 
 client.login(process.env.DISCORD_BOT_TOKEN);

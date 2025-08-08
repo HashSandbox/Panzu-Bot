@@ -47,8 +47,7 @@
     "equipped": {
       "helmet": "fortified steel helmet",
       "ride": null,
-      "armor": "fortified steel armor",
-      "weapon": "fortified steel waraxe"
+      "armor": "fortified steel armor"
     },
     "pets": {
       "goblin pet": 4,
